@@ -1,6 +1,6 @@
 import argparse
-from datetime import datetime
 import traceback
+from datetime import datetime
 
 from openai import OpenAI
 from sanic import Sanic, response
@@ -30,15 +30,18 @@ async def test(request):
 @app.route("/llm_ollama", methods=["POST"])
 async def llm_service(request) -> response.HTTPResponse:
     try:
-        temperature = float(request.json.get("temperature", 0.0))
+        temperature = float(request.json.get("temperature", 0.001))
         print(f"temperature:{temperature}")
+        is_stream = request.json.get("stream", False)
+        print(f"是否流式返回:{is_stream}")
         content = request.json.get("content")
         print(f"content:{content}")
         model_name = request.json.get("model_name") or "qwen2.5:7b-instruct"
         print(f"model_name:{model_name}")
 
         completion = client.chat.completions.create(
-            model=model_name, temperature=temperature, messages=[{"role": "user", "content": content}]
+            model=model_name, temperature=temperature, stream=is_stream,
+            messages=[{"role": "user", "content": content}]
         )
         response_str = completion.choices[0].message.content
         return response.json({"response": response_str}, status=200)
