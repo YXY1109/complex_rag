@@ -1,0 +1,19 @@
+services:
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.17.3
+    container_name: kibana
+    restart: always
+    networks:
+      - 1panel-network
+    ports:
+      - "5601:5601"
+    environment:
+      - TZ=Asia/Shanghai
+      - I18N_LOCALE=zh-CN
+      - ELASTICSEARCH_HOSTS=http://172.18.0.5:9200
+      - ELASTICSEARCH_SERVICEACCOUNTTOKEN=AAEAAWVsYXN0aWMva2liYW5hL2tpYmFuYS10b2tlbi15eHk6V0pBLUtyUFJUVTZCc0hkSUFtbU1pUQ
+#      - ELASTICSEARCH_USERNAME=elastic
+#      - ELASTICSEARCH_PASSWORD=***
+networks:
+  1panel-network:
+    external: true

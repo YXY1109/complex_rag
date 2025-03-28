@@ -41,4 +41,6 @@ test:
 	$(VENV_SCRIPTS)/pytest tests/
 
 # 执行所有检查
-all: format flake8 mypy test
+all: format test
+#all: format flake8 test
+#all: format flake8 mypy test

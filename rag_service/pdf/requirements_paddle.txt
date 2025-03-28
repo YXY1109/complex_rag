@@ -1,0 +1,2 @@
+--extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu118/
+paddlepaddle-gpu==2.5.1

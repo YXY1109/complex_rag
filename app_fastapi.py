@@ -58,5 +58,12 @@ async def add_process_time_header(request: Request, call_next):
 
 
 if __name__ == "__main__":
-    logger.info("开始启动本地服务：")
-    uvicorn.run(app="app_fastapi:app", host=settings.SERVER_HOST, port=settings.SERVER_PORT)
+    if settings.DEBUG:
+        logger.info("启动本地调试模式")
+        uvicorn.run(app="app_fastapi:app", host=settings.SERVER_HOST, port=settings.SERVER_PORT)
+    else:
+        logger.info("启动生产模式")
+        # 正式使用，后台服务
+        # gunicorn app_fastapi:app -c gunicorn.py
+        # 调试使用，前台服务
+        # uvicorn.run(app="app_fastapi:app", host=run_host, port=run_port, reload=is_debug)
