@@ -1,6 +1,6 @@
 import argparse
-import traceback
 from datetime import datetime
+import traceback
 
 from openai import OpenAI
 from sanic import Sanic, response
@@ -40,8 +40,7 @@ async def llm_service(request) -> response.HTTPResponse:
         print(f"model_name:{model_name}")
 
         completion = client.chat.completions.create(
-            model=model_name, temperature=temperature, stream=is_stream,
-            messages=[{"role": "user", "content": content}]
+            model=model_name, temperature=temperature, stream=is_stream, messages=[{"role": "user", "content": content}]
         )
         response_str = completion.choices[0].message.content
         return response.json({"response": response_str}, status=200)
