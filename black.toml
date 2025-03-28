@@ -1,0 +1,12 @@
+[tool.black]
+# 每行最大字符数
+line-length = 120
+# 包括的文件或目录
+include = '\.pyi?$'
+# 排除的文件或目录
+exclude = '''
+/(
+    \.git
+  | venv
+)/
+'''
