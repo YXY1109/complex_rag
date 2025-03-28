@@ -9,6 +9,7 @@ from starlette.staticfiles import StaticFiles
 import uvicorn
 
 from src.config.config import settings
+from src.routers import chat, knowledge, tasks, upload, user
 from src.utils.common import ORJSONResponse
 from src.utils.logger import logger
 
@@ -34,6 +35,13 @@ async def lifespan(app_life: FastAPI):
 
 app = FastAPI(lifespan=lifespan, default_response_class=ORJSONResponse)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 子路由
+app.include_router(user.router)
+app.include_router(knowledge.router)
+app.include_router(upload.router)
+app.include_router(chat.router)
+app.include_router(tasks.router)
 
 app.add_middleware(
     CORSMiddleware,
