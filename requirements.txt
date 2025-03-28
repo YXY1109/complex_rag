@@ -15,3 +15,5 @@ loguru==0.7.3
 python-multipart==0.0.20
 orjson==3.10.16
 python-dotenv==1.1.0
+sqlalchemy==2.0.40
+pymysql==1.1.1
