@@ -8,7 +8,7 @@ echo 第一步，切换到D盘
 d:
 
 echo 第二步，切换到指定目录
-cd \PycharmProjects\yxy_rag\docs\soft\frp\
+cd \PycharmProjects\complex_rag\docs\frp\
 
 echo 第三步，打开frpc.exe
 .\frpc.exe -c .\frpc.toml

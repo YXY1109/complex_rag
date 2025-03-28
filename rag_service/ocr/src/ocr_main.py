@@ -7,6 +7,13 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 
+# todo 注意必须要引入该包
+from rag_service.ocr.src.operators import (
+    DetResizeForTest,
+    KeepKeys,
+    NormalizeImage,
+    ToCHWImage,
+)  # noqa
 from rag_service.ocr.src.postprocess import build_post_process
 
 
@@ -123,7 +130,7 @@ class TextRecognizer(object):
 
         img_np = np.asarray(img_new)
         img_np = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-        img_black[:, 0 : img_np.shape[1]] = img_np
+        img_black[:, 0: img_np.shape[1]] = img_np
         img_black = img_black[:, :, np.newaxis]
 
         row, col, c = img_black.shape
