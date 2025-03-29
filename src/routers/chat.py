@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, Request
 from loguru import logger
+from sqlalchemy.orm import Session
 from starlette.responses import StreamingResponse
+
+from src.model.pydantic_m.chat import ChatParam
+from src.utils.handler.mysql_handler import get_session
 
 router = APIRouter(
     prefix="/chat",
@@ -9,7 +13,6 @@ router = APIRouter(
 
 
 @router.post("/chat", summary="知识库对话")
-@logger.catch
 async def knowledge_chat(request: Request, chat_param: ChatParam, db: Session = Depends(get_session)):
     logger.info("知识库对话")
     api_key = router.state.config.get("api_key")

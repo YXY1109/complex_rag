@@ -16,14 +16,14 @@ class BaseTime(Base):
     create_time = Column(DateTime, default=now, comment="创建时间")
 
 
-class UserCollection(BaseTime):
+class User(BaseTime):
     """
-    用户，对应milvus中的collection
+    用户信息表
     """
 
     __tablename__ = "user"
     __table_args__ = {"comment": "用户"}
-    user_id = Column(SmallInteger, primary_key=True, autoincrement=True, comment="主键，用户id，对应：collection")
+    user_id = Column(SmallInteger, primary_key=True, autoincrement=True, comment="主键，用户id")
     user_name = Column(String(50), default="", comment="用户名")
     user_status = Column(SmallInteger, default=1, comment="0=关闭 1=启用")
 
@@ -31,24 +31,25 @@ class UserCollection(BaseTime):
         return self.user_id
 
 
-class KnowledgePartition(BaseTime):
+class Knowledge(BaseTime):
     """
-    知识库，对应milvus中的partition
+    milvus知识库
     """
 
     __tablename__ = "knowledge"
     __table_args__ = {"comment": "知识库"}
 
-    knowledge_id = Column(String(50), primary_key=True, comment="主键，知识库id，对应：partition")
-    knowledge_name = Column(String(50), default="", comment="知识库名称")
-    user_id = Column(SmallInteger, comment="用户id")
+    knowledge_id = Column(Integer, primary_key=True, comment="主键，知识库id")
+    knowledge_name = Column(String(50), default="", comment="知识库名称，对应collection")
+    partition_name = Column(String(50), default="", comment="知识库分区名称")
     knowledge_status = Column(SmallInteger, default=1, comment="0=关闭 1=启用")
+    user_id = Column(SmallInteger, comment="用户id")
 
     def __repr__(self):
         return self.knowledge_id
 
 
-class UploadMinioFile(BaseTime):
+class File(BaseTime):
     """
     文件
     """
@@ -57,9 +58,9 @@ class UploadMinioFile(BaseTime):
     __table_args__ = {"comment": "文件上传"}
     file_id = Column(SmallInteger, primary_key=True, autoincrement=True, comment="主键，文件id")
     file_name = Column(String(50), comment="文件名称")
-    minio_path = Column(String(500), comment="Minio文件路径")
-    knowledge_id = Column(String(50), primary_key=True, comment="主键，知识库id,对应：partition")
     file_status = Column(SmallInteger, default=1, comment="0=关闭 1=启动")
+    minio_path = Column(String(100), comment="Minio文件相对路径")
+    knowledge_id = Column(String(50), primary_key=True, comment="主键，知识库id")
 
     def __repr__(self):
         return self.file_id

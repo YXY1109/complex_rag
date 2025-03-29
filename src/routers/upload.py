@@ -5,6 +5,9 @@ import urllib.parse
 
 from fastapi import APIRouter, Depends, UploadFile
 from loguru import logger
+from sqlalchemy.orm import Session
+
+from src.utils.handler.mysql_handler import get_session
 
 router = APIRouter(
     prefix="/upload",
