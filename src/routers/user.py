@@ -13,7 +13,6 @@ router = APIRouter(
 
 
 @router.post("/create_user", summary="创建用户")
-@logger.catch
 async def create_user(user_param: UserParam, db: Session = Depends(get_session)):
     logger.info("开始创建用户")
     # 创建用户

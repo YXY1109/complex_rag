@@ -15,7 +15,6 @@ router = APIRouter(
 
 
 @router.post("/new_knowledge", summary="新建知识库")
-@logger.catch
 async def new_knowledge(knowledge_param: KnowledgeParam, db: Session = Depends(get_session)):
     logger.info("开始创建知识库")
     user_id = knowledge_param.user_id  # 用户id
@@ -28,7 +27,7 @@ async def new_knowledge(knowledge_param: KnowledgeParam, db: Session = Depends(g
         db.add(knowledge)
         db.commit()
         logger.success("知识库插入成功！")
-        # 初始化Milvus的集合的分区
+        # todo 初始化Milvus的集合的分区
         # init_milvus(c_id, p_id)
 
     return {"msg": f"{partition_name}：知识库创建成功！"}
