@@ -91,6 +91,7 @@ async def pdf_to_md(request: Request):
     # 保存模型推理结果
     model_result_path = os.path.join(save_file_dir, f"{file_name_no_suff}_model.pdf")
     infer_result.draw_model(model_result_path)
+
     model_inference_result = infer_result.get_infer_res()
     print(f"模型的推理结果：{model_inference_result}")
 

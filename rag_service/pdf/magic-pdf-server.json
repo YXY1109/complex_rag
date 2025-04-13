@@ -11,8 +11,8 @@
             "endpoint"
         ]
     },
-    "models-dir": "D:\\PycharmProjects\\yxy_rag\\rag_service\\models\\PDF-Extract-Kit",
-    "layoutreader-model-dir": "D:\\PycharmProjects\\yxy_rag\\rag_service\\models\\layoutreader",
+    "models-dir": "D:/PycharmProjects/MinerU/models/models",
+    "layoutreader-model-dir": "D:/PycharmProjects/MinerU/models",
     "device-mode": "cuda",
     "layout-config": {
         "model": "doclayout_yolo"
@@ -48,5 +48,5 @@
             "enable": false
         }
     },
-    "config_version": "1.1.1"
+    "config_version": "1.2.0"
 }
