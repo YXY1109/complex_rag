@@ -5,6 +5,7 @@ from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, connec
 from pymilvus.orm import db, utility
 
 from src.config.config import settings
+from src.utils.common import chinese_to_pinyin, has_chinese
 
 
 def init_milvus(collection_name: str, partition_name: str):
@@ -13,6 +14,8 @@ def init_milvus(collection_name: str, partition_name: str):
     :param collection_name: 集合名称，用户区分
     :param partition_name: 分区名称，用户有多个知识库
     """
+
+    partition_name = chinese_to_pinyin(partition_name) if has_chinese(partition_name) else partition_name
 
     try:
         database_name = settings.MILVUS_DATABASE_NAME
@@ -92,6 +95,6 @@ if __name__ == "__main__":
     p_name1 = "民法典"  # 知识库id
 
     # 初始化
-    init_milvus(user_id1, p_name1)
+    init_milvus("yxy_1", p_name1)
     # 插入数据
     # insert_files_to_milvus(c_id1, p_id1)

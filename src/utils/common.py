@@ -93,6 +93,18 @@ def chinese_to_pinyin(text):
     return pinyin_str
 
 
+def has_chinese(text):
+    """
+    判断字符串中是否包含中文
+    :param text: 输入的字符串
+    :return: 如果包含中文返回 True，否则返回 False
+    """
+    for char in text:
+        if "\u4e00" <= char <= "\u9fff":
+            return True
+    return False
+
+
 if __name__ == "__main__":
     # 测试示例
     chinese_text = "你好，世界！"

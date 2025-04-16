@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from src.model.pydantic_m.knowledge import KnowledgeParam
 from src.model.sqlalchemy_m.model import Knowledge
-from src.utils.common import get_collection_name
+from src.utils.common import chinese_to_pinyin, get_collection_name, has_chinese
 from src.utils.handler.milvus_handler import init_milvus
 from src.utils.handler.mysql_handler import get_session
 
@@ -21,6 +21,8 @@ async def new_knowledge(knowledge_param: KnowledgeParam, db: Session = Depends(g
     knowledge_name = get_collection_name(user_id)  # 集合的id
 
     partition_name = knowledge_param.p_name  # 知识库名称
+    partition_name = chinese_to_pinyin(partition_name) if has_chinese(partition_name) else partition_name
+
     knowledge_item = db.query(Knowledge).filter_by(partition_name=partition_name).first()
     if not knowledge_item:
         # 插入数据库
