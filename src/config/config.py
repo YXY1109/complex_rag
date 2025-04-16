@@ -12,6 +12,7 @@ class ConfigSettings(BaseSettings):
     SERVER_HOST: str
     SERVER_PORT: int
 
+    # mysql
     MYSQL_DB: str
     MYSQL_HOST: str
     MYSQL_PORT: int
@@ -23,11 +24,19 @@ class ConfigSettings(BaseSettings):
     MYSQL_POOL_PING: bool
     MYSQL_MAX_OVERFLOW: int
 
+    # redis
     REDIS_HOST: str
     REDIS_PORT: int
     REDIS_PASSWORD: str
     REDIS_DB_NUM: int
     REDIS_DB_BACKEND: int
+
+    # milvus
+    MILVUS_DATABASE_NAME: str
+    MILVUS_HOST: str
+    MILVUS_PORT: int
+    MILVUS_USER: str
+    MILVUS_PASSWORD: str
 
     class Config:
         # 配置环境变量的加载方式，这里从 .env 文件中加载

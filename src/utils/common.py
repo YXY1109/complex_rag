@@ -6,6 +6,7 @@ import uuid
 
 from orjson import orjson
 from pydantic import typing
+from pypinyin import Style, pinyin
 from starlette.responses import JSONResponse
 
 
@@ -81,5 +82,20 @@ def truncate_filename(filename: str, max_length=50):
     return new_filename
 
 
+def get_collection_name(user_id: int):
+    collection_name = "knowledge_name_" + str(user_id)  # 集合的id
+    return collection_name
+
+
+def chinese_to_pinyin(text):
+    result = pinyin(text, style=Style.NORMAL)
+    pinyin_str = "".join([item[0] for item in result])
+    return pinyin_str
+
+
 if __name__ == "__main__":
-    pass
+    # 测试示例
+    chinese_text = "你好，世界！"
+    pinyin_text = chinese_to_pinyin(chinese_text)
+    print(f"中文: {chinese_text}")
+    print(f"拼音: {pinyin_text}")
