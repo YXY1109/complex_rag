@@ -1,13 +1,14 @@
 import os
 import re
-from typing import List
 import urllib.parse
+from typing import List
 
+import aiofiles
 from fastapi import APIRouter, Depends, UploadFile
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from src.utils.common import get_now_time
+from src.utils.common import get_now_time, get_collection_name, has_chinese, chinese_to_pinyin, truncate_filename
 from src.utils.handler.mysql_handler import get_session
 
 router = APIRouter(
@@ -17,12 +18,14 @@ router = APIRouter(
 
 
 @router.post("/upload_files", summary="上传文件")
-async def upload_files(files: List[UploadFile], user_id: int = 1, db: Session = Depends(get_session)):
-    logger.info(f"开始上传文件。{get_now_time()}")
-    c_id = get_collection_from_user_id(user_id)
-    logger.info(f"集合id：{c_id}")
-    p_id = get_partition_from_p_id(user_id, db)
-    logger.info(f"分区id：{p_id}")
+async def upload_files(files: List[UploadFile], db: Session = Depends(get_session), user_id: int = 1,
+                       partition_name: str = "minfadian"):
+    logger.info(f"开始上传文件：{get_now_time()}")
+    knowledge_name = get_collection_name(user_id)
+    logger.info(f"集合名称：{knowledge_name}")
+    partition_name = partition_name.strip()  # 去除前后空格
+    partition_name = chinese_to_pinyin(partition_name) if has_chinese(partition_name) else partition_name
+    logger.info(f"分区名：{partition_name}")
 
     # 保存文件名称的列表
     file_names_list = []
@@ -40,7 +43,7 @@ async def upload_files(files: List[UploadFile], user_id: int = 1, db: Session = 
 
     # 本地文件临时路径
     project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    upload_dir = os.path.join(project_dir, "static", "upload", c_id, p_id)
+    upload_dir = os.path.join(project_dir, "static", "upload", knowledge_name, partition_name)
     if not os.path.exists(upload_dir):
         os.makedirs(upload_dir)
 
