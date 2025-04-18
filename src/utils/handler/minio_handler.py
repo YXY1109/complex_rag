@@ -1,6 +1,5 @@
-import os
 from mimetypes import guess_type
-from urllib.parse import quote
+import os
 
 from minio import Minio
 
@@ -20,8 +19,12 @@ def upload_to_minio(user_id: int, source_file_list: list):
     host = settings.MINIO_HOST
     port = settings.MINIO_PORT
 
-    client = Minio(endpoint=f"{host}:{port}", access_key=settings.MINIO_ACCESS_KEY,
-                   secret_key=settings.MINIO_SECRET_KEY, secure=settings.MINIO_SECURE)
+    client = Minio(
+        endpoint=f"{host}:{port}",
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=settings.MINIO_SECURE,
+    )
     logger.info(f"Minio客户端创建成功；{client}")
 
     bucket_name = f"complex-rag-{user_id}"
@@ -39,18 +42,19 @@ def upload_to_minio(user_id: int, source_file_list: list):
         content_type, _ = guess_type(source_file)
 
         # 上传文件，并指定内容类型
-        with open(source_file, 'rb') as file_data:
+        with open(source_file, "rb") as file_data:
             file_stat = os.stat(source_file)
             client.put_object(bucket_name, destination_file, file_data, file_stat.st_size)
         logger.success(f"File {destination_file} uploaded with content-type {content_type}.")
 
         file_url = client.presigned_get_object(bucket_name, destination_file)
         file_url = file_url.replace(" ", "%20")
-        file_url2 = f"http://{host}:{port}/{bucket_name}/{quote(destination_file)}"
         logger.info(f"文件下载地址：{file_url}")
-        file_url_list.append(file_url)
+        # file_url2 = f"http://{host}:{port}/{bucket_name}/{quote(destination_file)}"
+        # logger.info(f"文件下载地址2：{file_url2}")
+        file_url_list.append(f"{bucket_name}/{destination_file}")
     return file_url_list
 
 
-if __name__ == '__main__':
-    upload_to_minio(1, [r"C:\Users\xunyang\PycharmProjects\complex_rag\static\upload\knowledge_name_1\minfadian"])
+if __name__ == "__main__":
+    upload_to_minio(1, ["/Users/cj/Downloads/test.doc"])

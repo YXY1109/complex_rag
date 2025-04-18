@@ -1,7 +1,7 @@
 import os
 import re
-import urllib.parse
 from typing import List
+import urllib.parse
 
 import aiofiles
 from fastapi import APIRouter, Depends, UploadFile
@@ -9,7 +9,7 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from src.model.sqlalchemy_m.model import File
-from src.utils.common import get_now_time, get_collection_name, has_chinese, chinese_to_pinyin, truncate_filename
+from src.utils.common import chinese_to_pinyin, get_collection_name, get_now_time, has_chinese, truncate_filename
 from src.utils.handler.minio_handler import upload_to_minio
 from src.utils.handler.mysql_handler import get_session
 
@@ -20,8 +20,9 @@ router = APIRouter(
 
 
 @router.post("/upload_files", summary="上传文件")
-async def upload_files(files: List[UploadFile], db: Session = Depends(get_session), user_id: int = 1,
-                       partition_name: str = "minfadian"):
+async def upload_files(
+    files: List[UploadFile], db: Session = Depends(get_session), user_id: int = 1, partition_name: str = "minfadian"
+):
     logger.info(f"开始上传文件：{get_now_time()}")
     knowledge_name = get_collection_name(user_id)
     logger.info(f"集合名称：{knowledge_name}")
@@ -52,7 +53,6 @@ async def upload_files(files: List[UploadFile], db: Session = Depends(get_sessio
     # 保存文件到本地
     file_paths_list = []
     for file, file_name in zip(files, file_names_list):
-        # todo 生成file_id存入mysql
         save_file_path = os.path.join(str(upload_dir), file_name)
         # 文件上传
         try:

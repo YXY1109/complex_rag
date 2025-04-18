@@ -6,6 +6,7 @@ from pymilvus.orm import db, utility
 
 from src.config.config import settings
 from src.utils.common import chinese_to_pinyin, has_chinese
+from src.utils.handler.bce_embedding import bce_model_encode
 
 
 def init_milvus(collection_name: str, partition_name: str):
@@ -61,7 +62,15 @@ def init_milvus(collection_name: str, partition_name: str):
         logger.error(f"创建Milvus集合：{collection_name}失败: {e}")
 
 
-def insert_to_milvus(self):
+def insert_to_milvus(collection_name: str, partition_name: str):
+    """
+    milvus初始化，创建向量数据库
+    :param collection_name: 集合名称，用户区分
+    :param partition_name: 分区名称，用户有多个知识库
+    """
+
+    partition_name = chinese_to_pinyin(partition_name) if has_chinese(partition_name) else partition_name
+
     start = time.perf_counter()
 
     chunk_id_list = ["3", "4"]
@@ -73,7 +82,7 @@ def insert_to_milvus(self):
     embedding_list = bce_model_encode(content_list)
 
     # 往向量库中插入数据
-    collection = Collection(self.collection_name)
+    collection = Collection(collection_name)
     insert_data = [
         chunk_id_list,
         file_id_list,
@@ -83,7 +92,7 @@ def insert_to_milvus(self):
         timestamp_list,
         embedding_list,
     ]
-    mr = collection.insert(insert_data, self.partition_name)
+    mr = collection.insert(insert_data, partition_name)
     print(f"插入数据的结果：{mr}")
     # 插入的数据存储在内存，需要传输到磁盘
     collection.flush()
@@ -91,10 +100,10 @@ def insert_to_milvus(self):
 
 
 if __name__ == "__main__":
-    user_id1 = 1  # 用户id
+    collection_name1 = "knowledge_name_1"
     p_name1 = "民法典"  # 知识库id
 
     # 初始化
-    init_milvus("yxy_1", p_name1)
+    init_milvus(collection_name1, p_name1)
     # 插入数据
-    # insert_files_to_milvus(c_id1, p_id1)
+    insert_to_milvus(collection_name1, p_name1)
