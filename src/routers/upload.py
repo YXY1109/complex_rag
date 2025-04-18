@@ -8,7 +8,9 @@ from fastapi import APIRouter, Depends, UploadFile
 from loguru import logger
 from sqlalchemy.orm import Session
 
+from src.model.sqlalchemy_m.model import File
 from src.utils.common import get_now_time, get_collection_name, has_chinese, chinese_to_pinyin, truncate_filename
+from src.utils.handler.minio_handler import upload_to_minio
 from src.utils.handler.mysql_handler import get_session
 
 router = APIRouter(
@@ -71,7 +73,7 @@ async def upload_files(files: List[UploadFile], db: Session = Depends(get_sessio
     file_url_list = upload_to_minio(user_id, file_paths_list)
     # 文件信息存入mysql
     for file_name, file_url in zip(file_names_list, file_url_list):
-        upload_file = UploadMinioFile(file_name=file_name, minio_path=file_url, knowledge_id=p_id)
+        upload_file = File(file_name=file_name, minio_path=file_url, knowledge_id=knowledge_name)
         db.add(upload_file)
     db.commit()
     logger.success("文件上传，保存mysql成功！")

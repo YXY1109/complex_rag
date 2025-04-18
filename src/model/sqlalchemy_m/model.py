@@ -79,7 +79,7 @@ def drop_all():
 
 
 def create_default_user():
-    user = UserCollection(user_id=1, user_name="YXY1109")
+    user = User(user_id=1, user_name="YXY1109")
     my_session.add(user)
     my_session.commit()
     print("创建默认用户完成")

@@ -38,6 +38,13 @@ class ConfigSettings(BaseSettings):
     MILVUS_USER: str
     MILVUS_PASSWORD: str
 
+    # minio
+    MINIO_HOST: str
+    MINIO_PORT: int
+    MINIO_ACCESS_KEY: str
+    MINIO_SECRET_KEY: str
+    MINIO_SECURE: bool
+
     class Config:
         # 配置环境变量的加载方式，这里从 .env 文件中加载
         env_file = ".env"
