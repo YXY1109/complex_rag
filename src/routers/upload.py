@@ -78,6 +78,8 @@ async def upload_files(
     db.commit()
     logger.success("文件上传，保存mysql成功！")
 
+    # todo 文档解析
+    # todo 文档分割
     # todo 文件的文本写入到milvus
     # todo 文件的文本写入elasticsearch
 
