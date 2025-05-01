@@ -22,3 +22,4 @@ minio==7.2.15
 requests==2.32.3
 langchain==0.3.24
 langchain-community==0.3.23
+elasticsearch==8.17.2

@@ -48,6 +48,13 @@ class ConfigSettings(BaseSettings):
     # embedding
     EMBEDDING_URL: str
 
+    # es
+    ES_HOST: str
+    ES_PORT: int
+    ES_USER: str
+    ES_PASSWORD: str
+    ES_INDEX: str
+
     class Config:
         # 配置环境变量的加载方式，这里从 .env 文件中加载
         env_file = ".env"
