@@ -5,11 +5,14 @@ import urllib.parse
 
 import aiofiles
 from fastapi import APIRouter, Depends, UploadFile
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import CharacterTextSplitter, RecursiveCharacterTextSplitter
 from loguru import logger
 from sqlalchemy.orm import Session
 
 from src.model.sqlalchemy_m.model import File
 from src.utils.common import chinese_to_pinyin, get_collection_name, get_now_time, has_chinese, truncate_filename
+from src.utils.handler.milvus_handler import init_milvus, insert_to_milvus
 from src.utils.handler.minio_handler import upload_to_minio
 from src.utils.handler.mysql_handler import get_session
 
@@ -71,16 +74,40 @@ async def upload_files(
     logger.info(f"上传成功后的文件列表：{file_paths_list}")
     # 上传文件到minio
     file_url_list = upload_to_minio(user_id, file_paths_list)
+
+    file_info_list = []
     # 文件信息存入mysql
-    for file_name, file_url in zip(file_names_list, file_url_list):
+    for file_name, file_url, file_path in zip(file_names_list, file_url_list, file_paths_list):
         upload_file = File(file_name=file_name, minio_path=file_url, knowledge_id=knowledge_name)
         db.add(upload_file)
+
+        db.flush()
+        file_id = upload_file.file_id
+        logger.info(f"文件id：{file_id}")
+        file_info_list.append(
+            {"file_id": file_id, "file_name": file_name, "file_url": file_url, "file_path": file_path}
+        )
     db.commit()
     logger.success("文件上传，保存mysql成功！")
 
-    # todo 文档解析
-    # todo 文档分割
-    # todo 文件的文本写入到milvus
-    # todo 文件的文本写入elasticsearch
+    for file_dict in file_info_list:
+        file_path = file_dict["file_path"]
+
+        # todo 文档解析，先使用txt
+        loder = TextLoader(file_path, encoding="utf-8")
+        documents = loder.load()
+
+        # todo 文档分割
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=100, chunk_overlap=10, length_function=len)
+        split_docs = text_splitter.split_documents(documents)
+        logger.info(f"split_docs:{split_docs}")
+        file_dict["documents"] = split_docs
+
+        # todo 文件的文本写入到milvus
+        init_milvus(knowledge_name, partition_name)
+        insert_to_milvus(knowledge_name, partition_name, file_dict)
+        logger.info(f"文件写入milvus成功！")
+
+        # todo 文件的文本写入elasticsearch
 
     return {"msg": "上传成功"}

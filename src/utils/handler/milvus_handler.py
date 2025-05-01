@@ -1,5 +1,7 @@
 import time
+from typing import List
 
+from langchain_core.documents import Document
 from loguru import logger
 from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, connections
 from pymilvus.orm import db, utility
@@ -21,9 +23,10 @@ def init_milvus(collection_name: str, partition_name: str):
     try:
         database_name = settings.MILVUS_DATABASE_NAME
         fields = [
-            FieldSchema(name="chunk_id", dtype=DataType.VARCHAR, max_length=64, is_primary=True),
-            FieldSchema(name="file_id", dtype=DataType.VARCHAR, max_length=64),
+            FieldSchema(name="chunk_id", dtype=DataType.INT64, max_length=64, is_primary=True, auto_id=True),
+            FieldSchema(name="file_id", dtype=DataType.INT64),
             FieldSchema(name="file_name", dtype=DataType.VARCHAR, max_length=640),
+            FieldSchema(name="file_url", dtype=DataType.VARCHAR, max_length=640),
             FieldSchema(name="file_path", dtype=DataType.VARCHAR, max_length=640),
             FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=4000),
             FieldSchema(name="timestamp", dtype=DataType.VARCHAR, max_length=64),
@@ -62,36 +65,58 @@ def init_milvus(collection_name: str, partition_name: str):
         logger.error(f"创建Milvus集合：{collection_name}失败: {e}")
 
 
-def insert_to_milvus(collection_name: str, partition_name: str):
+def insert_to_milvus(collection_name: str, partition_name: str, file_dict: dict):
     """
     milvus初始化，创建向量数据库
     :param collection_name: 集合名称，用户区分
     :param partition_name: 分区名称，用户有多个知识库
+    :param file_dict: 待插入的数据
     """
 
     partition_name = chinese_to_pinyin(partition_name) if has_chinese(partition_name) else partition_name
 
     start = time.perf_counter()
 
-    chunk_id_list = ["3", "4"]
-    file_id_list = ["file1", "file2"]
-    file_name_list = ["yxy1", "yxy2"]
-    file_path_list = ["/yxy/yxy1.txt", "/yxy/yxy2.txt"]
-    content_list = ["你是谁", "你再干什么"]
-    timestamp_list = ["20240906", "20240907"]
+    file_id = file_dict["file_id"]
+    file_name = file_dict["file_name"]
+    file_url = file_dict["file_url"]
+    file_path = file_dict["file_path"]
+    timestamp = time.strftime("%Y%m%d", time.localtime())
+    documents: List[Document] = file_dict["documents"]
+    milvus_len = len(documents)
+
+    # file_id_list = [file_id] * milvus_len
+    # file_name_list = [file_name] * milvus_len
+    # file_url_list = [file_url] * milvus_len
+    content_list = [doc.page_content for doc in documents]
+    #
+    # timestamp_list = [timestamp] * milvus_len
     embedding_list = bce_model_encode(content_list)
+
+    insert_data = []
+    # 将以上转为数组中是字典的形式
+    for content, embedding in zip(content_list, embedding_list):
+        new_dict = {
+            "file_id": file_id,
+            "file_name": file_name,
+            "file_url": file_url,
+            "file_path": file_url,
+            "content": content,
+            "timestamp": timestamp,
+            "embedding": embedding,
+        }
+        insert_data.append(new_dict)
 
     # 往向量库中插入数据
     collection = Collection(collection_name)
-    insert_data = [
-        chunk_id_list,
-        file_id_list,
-        file_name_list,
-        file_path_list,
-        content_list,
-        timestamp_list,
-        embedding_list,
-    ]
+    # insert_data = [
+    #     file_id_list,
+    #     file_name_list,
+    #     file_url_list,
+    #     content_list,
+    #     timestamp_list,
+    #     embedding_list,
+    # ]
     mr = collection.insert(insert_data, partition_name)
     print(f"插入数据的结果：{mr}")
     # 插入的数据存储在内存，需要传输到磁盘
