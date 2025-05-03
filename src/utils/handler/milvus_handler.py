@@ -11,11 +11,12 @@ from src.utils.common import chinese_to_pinyin, has_chinese
 from src.utils.handler.bce_embedding import bce_model_encode
 
 
-def init_milvus(collection_name: str, partition_name: str):
+def init_milvus(collection_name: str, partition_name: str, focus_delete=False):
     """
     milvus初始化，创建向量数据库
     :param collection_name: 集合名称，用户区分
     :param partition_name: 分区名称，用户有多个知识库
+    :param focus_delete:
     """
 
     partition_name = chinese_to_pinyin(partition_name) if has_chinese(partition_name) else partition_name
@@ -43,6 +44,10 @@ def init_milvus(collection_name: str, partition_name: str):
         if database_name not in db.list_database():
             db.create_database(database_name)
         db.using_database(database_name)
+
+        if focus_delete:
+            utility.drop_collection(collection_name)
+            logger.warning(f"强制删除Milvus集合：{collection_name}成功")
 
         if utility.has_collection(collection_name):
             collection = Collection(collection_name)
@@ -122,6 +127,7 @@ def insert_to_milvus(collection_name: str, partition_name: str, file_dict: dict)
     # 插入的数据存储在内存，需要传输到磁盘
     collection.flush()
     print("插入完成，向量插入共耗时约 {:.2f} 秒".format(time.perf_counter() - start))
+    return mr.primary_keys
 
 
 if __name__ == "__main__":

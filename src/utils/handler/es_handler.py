@@ -7,7 +7,9 @@ from src.utils.logger import logger
 
 
 class ElasticSearchClient:
-    def __init__(self):
+    def __init__(self, focus_delete=False):
+
+        self.focus_delete = focus_delete
 
         try:
             # 修正端口变量名拼写错误
@@ -59,6 +61,10 @@ class ElasticSearchClient:
         安装ik_smart:进入容器内，执行命令
         bin/elasticsearch-plugin install https://get.infini.cloud/elasticsearch/analysis-ik/8.17.4
         """
+        if self.focus_delete:
+            self.delete_index(index_name)
+            logger.warning(f"强制删除ES索引：{index_name}成功")
+
         index_name = index_name.lower()
         try:
             if self.has_index(index_name):
@@ -90,6 +96,7 @@ class ElasticSearchClient:
         return {
             "properties": {
                 "file_id": {"type": "keyword", "index": True},
+                "chunk_id": {"type": "keyword", "index": True},
                 "content": {
                     "type": "text",
                     "similarity": "custom_bm25",
@@ -112,7 +119,7 @@ class ElasticSearchClient:
             logger.error(f"fail to delete: {index_name}\nERROR: {e}")
             return False
 
-    def insert(self, insert_list: List[Dict], index_name: str, refresh: bool = False) -> bool:
+    def insert(self, insert_data: dict, index_name: str, refresh: bool = False) -> bool:
         """
         插入文档
         #async
@@ -124,16 +131,25 @@ class ElasticSearchClient:
             logger.error(f"创建索引 {index_name} 时出错: {e}")
             return False
 
+        file_id = insert_data.get("file_id")
+        chunk_ids = insert_data.get("chunk_ids")
+        documents = insert_data.get("documents")
         actions = []
-        for item in insert_list:
-            if not isinstance(item, dict) or "metadata" not in item or "chunk_id" not in item["metadata"]:
-                logger.warning(f"跳过无效文档: {item}。文档必须是字典且包含 metadata.chunk_id。")
-                continue
-            action = {"_op_type": "index", "_id": item["metadata"]["chunk_id"]}
-            action.update(item)
+        for chunk_id, item in zip(chunk_ids, documents):
+            # https://www.elastic.co/docs/reference/elasticsearch/clients/python/client-helpers
+            chunk_id = str(chunk_id)
+            action = {
+                "file_id": file_id,
+                "chunk_id": chunk_id,
+                "content": item.page_content,
+                "_op_type": "index",
+                "_id": chunk_id,
+            }
             actions.append(action)
 
-        if not actions:
+        if actions:
+            logger.info(f"ES批量插入的输出为：{actions}")
+        else:
             logger.warning("没有有效的文档可以插入。")
             return False
 
@@ -147,7 +163,7 @@ class ElasticSearchClient:
                 raise_on_error=True,
             )
             if documents_written > 0:
-                logger.info(f"成功插入 {documents_written} 个文档到索引 {index_name}。")
+                logger.info(f"成功插入 {documents_written} 个文档到索引：{index_name}。")
             if errors:
                 logger.error(f"插入文档到索引 {index_name} 时出现 {len(errors)} 个错误: {errors}")
             return True
@@ -239,20 +255,12 @@ class ElasticSearchClient:
 
 
 if __name__ == "__main__":
-    client = ElasticSearchClient()
+    client = ElasticSearchClient(focus_delete=True)
     index_list = client.list_index()
-    name = "test"
+    name = "knowledge_name_8"
     print(index_list)
     print(client.has_index(name))
 
-    # client.delete_index(name)
-    # client.create_index(name)
-    # client.insert([
-    #     {'metadata': {'chunk_id': '1'}, 'content': '今年是“十四五”规划收官之年、“十五五”规划谋篇布局之年'},
-    #     {'metadata': {'chunk_id': '2'},
-    #      'content': '4月30日，习近平总书记在上海主持召开部分省区市“十五五”时期经济社会发展座谈会，为进一步全面深化改革、推动中国式现代化行稳致远筹谋。'},
-    # ], name)
-    # print("插入完成")
-
-    data = client.search(["十五五"], name)
-    print(data)
+    client.delete_index(name)
+    client.create_index(name)
+    print("插入完成")

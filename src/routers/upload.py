@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from src.model.sqlalchemy_m.model import File
 from src.utils.common import chinese_to_pinyin, get_collection_name, get_now_time, has_chinese, truncate_filename
+from src.utils.handler.es_handler import ElasticSearchClient
 from src.utils.handler.milvus_handler import init_milvus, insert_to_milvus
 from src.utils.handler.minio_handler import upload_to_minio
 from src.utils.handler.mysql_handler import get_session
@@ -104,10 +105,14 @@ async def upload_files(
         file_dict["documents"] = split_docs
 
         # todo 文件的文本写入到milvus
-        init_milvus(knowledge_name, partition_name)
-        insert_to_milvus(knowledge_name, partition_name, file_dict)
-        logger.info("文件写入milvus成功！")
+        init_milvus(knowledge_name, partition_name, True)
+        chunk_ids = insert_to_milvus(knowledge_name, partition_name, file_dict)
+        logger.info(f"文件写入milvus成功：{chunk_ids}")
+        file_dict["chunk_ids"] = chunk_ids
 
+        logger.info(f"批量写入ES的数据为：{file_dict}")
         # todo 文件的文本写入elasticsearch
+        client = ElasticSearchClient(focus_delete=True)
+        client.insert(file_dict, index_name=knowledge_name)
 
     return {"msg": "上传成功"}
