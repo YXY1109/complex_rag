@@ -6,7 +6,7 @@ import urllib.parse
 import aiofiles
 from fastapi import APIRouter, Depends, UploadFile
 from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import CharacterTextSplitter, RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from loguru import logger
 from sqlalchemy.orm import Session
 
@@ -106,7 +106,7 @@ async def upload_files(
         # todo 文件的文本写入到milvus
         init_milvus(knowledge_name, partition_name)
         insert_to_milvus(knowledge_name, partition_name, file_dict)
-        logger.info(f"文件写入milvus成功！")
+        logger.info("文件写入milvus成功！")
 
         # todo 文件的文本写入elasticsearch
 

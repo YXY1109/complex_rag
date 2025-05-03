@@ -14,7 +14,7 @@ def upload_to_minio(user_id: int, source_file_list: list):
     :param source_file_list: 用户上传的文件
     :return:
     """
-    logger.info(f"Minio连接配置信息")
+    logger.info("Minio连接配置信息")
 
     host = settings.MINIO_HOST
     port = settings.MINIO_PORT

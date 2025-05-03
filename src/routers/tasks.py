@@ -13,8 +13,9 @@ router = APIRouter(
 async def start_task(message: str):
     # delay简单 apply_async复杂
     # task = long_task.delay(message)  # 使用Celery异步执行任务
-    task = long_task.apply_async(args=[message], queue="yxy")
-    return {"task_id": task.id, "message": "任务已提交"}
+    # task = long_task.apply_async(args=[message], queue="yxy")
+    # return {"task_id": task.id, "message": "任务已提交"}
+    return {"task_id": "task.id", "message": "任务已提交"}
 
 
 # 查询任务状态

@@ -80,10 +80,10 @@ def insert_to_milvus(collection_name: str, partition_name: str, file_dict: dict)
     file_id = file_dict["file_id"]
     file_name = file_dict["file_name"]
     file_url = file_dict["file_url"]
-    file_path = file_dict["file_path"]
+    # file_path = file_dict["file_path"]
     timestamp = time.strftime("%Y%m%d", time.localtime())
     documents: List[Document] = file_dict["documents"]
-    milvus_len = len(documents)
+    # milvus_len = len(documents)
 
     # file_id_list = [file_id] * milvus_len
     # file_name_list = [file_name] * milvus_len

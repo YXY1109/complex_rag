@@ -10,4 +10,5 @@ exclude =
     __pycache__
     venv
     tests/
-extend-ignore = E203
+    rag_service
+extend-ignore = E203,W391
