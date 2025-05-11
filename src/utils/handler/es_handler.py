@@ -101,8 +101,8 @@ class ElasticSearchClient:
                     "type": "text",
                     "similarity": "custom_bm25",
                     "index": True,
-                    "analyzer": "ik_smart",
-                    "search_analyzer": "ik_smart",
+                    "analyzer": "ik_max_word",
+                    "search_analyzer": "ik_max_word",
                 },
             }
         }
