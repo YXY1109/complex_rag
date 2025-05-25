@@ -57,7 +57,32 @@ def init_milvus(collection_name: str, partition_name: str, focus_delete=False):
             collection = Collection(collection_name, schema)
             logger.info(f"创建Milvus集合：{collection_name}成功")
 
-            create_params = {"metric_type": "L2", "index_type": "IVF_FLAT", "params": {"nlist": 2048}}
+            """
+            metric_type的设置，距离计算：https://milvus.io/docs/zh/metric.md
+            COSINE（余弦相似度）：metric_type的设置，距离计算：https://milvus.io/docs/zh/metric.md
+            文本语义匹配、图像特征检索、推荐系统
+            L2（欧氏距离）：图像像素比较、传感器数据、地理坐标
+            IP（内积）：未归一化的特征向量匹配、神经网络输出
+            """
+
+            """
+            内存索引
+            index_type的设置，向量索引：https://milvus.io/docs/zh/index.md
+            
+            索引类型	分类	核心特点	典型场景
+            FLAT	无（穷举）	100% 召回率，无压缩，速度慢，适合小数据集（百万级）。	精准检索需求（如小规模测试数据集）。
+            IVF_FLAT	基于量化	聚类分桶加速，通过nprobe平衡速度与召回率，内存占用高。	中等规模数据集（千万级），需高速查询和较高召回率（如推荐系统候选集生成）。
+            IVF_SQ8	基于量化	标量量化压缩（FLOAT→UINT8），内存占用减少 70-75%，召回率略降。	内存资源有限的场景（如边缘计算设备）。
+            IVF_PQ	基于量化	乘积量化压缩，索引文件更小，精度损失比 IVF_SQ8 大。	超大规模数据集（亿级），对内存敏感且可接受较低召回率（如日志分析）。
+            HNSW	基于图	分层图结构，查询速度极快，内存占用高，需提前训练索引。	实时高并发场景（如聊天 APP 语义搜索）。
+            SCANN	基于量化	利用 SIMD 优化计算，速度优于 IVF_PQ，支持原始数据嵌入索引。	大规模数据集且追求极致查询速度（如广告推荐实时检索）。
+            """
+
+            """
+            建立索引，nlist的设置：https://milvus.io/docs/zh/ivf-flat.md
+            nlist 值越大，通过创建更精细的簇来提高召回率，但会增加索引构建时间。请根据数据集大小和可用资源进行优化。大多数情况下，我们建议在此范围内设置值：[32, 4096].
+            """
+            create_params = {"metric_type": "COSINE", "index_type": "IVF_FLAT", "params": {"nlist": 2048}}
             collection.create_index(field_name="embedding", index_params=create_params)
             logger.info("创建Milvus索引成功")
         # 创建分区
@@ -128,6 +153,35 @@ def insert_to_milvus(collection_name: str, partition_name: str, file_dict: dict)
     collection.flush()
     print("插入完成，向量插入共耗时约 {:.2f} 秒".format(time.perf_counter() - start))
     return mr.primary_keys
+
+
+def search_milvus(collection_name: str, partition_name: str, query_text: str, top_k: int = 3):
+    """
+    milvus搜索
+    :param collection_name: 集合名称，用户区分
+    :param partition_name: 分区名称，用户有多个知识库
+    :param query_text: 搜索文本
+    :param top_k: 搜索结果数量
+    :return
+    """
+    partition_name = chinese_to_pinyin(partition_name) if has_chinese(partition_name) else partition_name
+    collection = Collection(collection_name)
+
+    """
+    nprobe的设置：https://milvus.io/docs/zh/ivf-flat.md
+    增加该值可提高召回率，但可能会减慢搜索速度。设置nprobe 与nlist 成比例，以平衡速度和准确性。
+    在大多数情况下，我们建议您在此范围内设置一个值：[1，nlist]。
+    """
+    query_result = collection.search(
+        [query_text],
+        anns_field="embedding",
+        param={"metric_type": "COSINE", "params": {"nprobe": 10}},
+        limit=top_k,
+        expr=f"file_name=='{p_name1}'",
+        partition_names=[partition_name],
+        output_fields=["file_name", "file_url", "file_path", "content", "timestamp"],
+    )
+    pass
 
 
 if __name__ == "__main__":
