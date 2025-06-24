@@ -36,7 +36,7 @@ async def llm_service(request) -> response.HTTPResponse:
         print(f"是否流式返回:{is_stream}")
         content = request.json.get("content")
         print(f"content:{content}")
-        model_name = request.json.get("model_name") or "qwen2.5:7b-instruct"
+        model_name = request.json.get("model_name") or "qwen2.5:7b"
         print(f"model_name:{model_name}")
 
         completion = client.chat.completions.create(
