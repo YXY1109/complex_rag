@@ -177,3 +177,4 @@ cython_debug/
 /docs/frp/frpc.toml
 /rag_service/models/
 /docs/markdown/
+/rag_service/qwen3/models/
