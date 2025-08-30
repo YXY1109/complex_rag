@@ -59,10 +59,11 @@ def init_milvus(collection_name: str, partition_name: str, focus_delete=False):
 
             """
             metric_type的设置，距离计算：https://milvus.io/docs/zh/metric.md
-            COSINE（余弦相似度）：metric_type的设置，距离计算：https://milvus.io/docs/zh/metric.md
-            文本语义匹配、图像特征检索、推荐系统
-            L2（欧氏距离）：图像像素比较、传感器数据、地理坐标
-            IP（内积）：未归一化的特征向量匹配、神经网络输出
+            L2（欧氏距离）：图像像素比较、传感器数据、地理坐标等需要“绝对距离”的场景。
+            IP（内积）：适合已归一化的特征向量匹配、神经网络输出
+            COSINE（余弦相似度）：文本语义匹配、图像特征检索、推荐系统
+            
+            若向量已归一化，IP 和 COSINE 效果一致
             """
 
             """
