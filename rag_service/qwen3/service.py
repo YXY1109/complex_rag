@@ -341,4 +341,4 @@ async def health_check(request):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, workers=1, debug=False)
+    app.run(host="0.0.0.0", port=8000, workers=1, debug=False, single_process=True)
