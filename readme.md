@@ -9,5 +9,5 @@
 ## 学习记录
 
 - k8s教程： https://www.bilibili.com/video/BV1MT411x7GH/?p=29
-- transformers教程：https://www.bilibili.com/video/BV1uk4y1W7tK?spm_id_from=333.788.player.switch&vd_source=4cff3e6a8562f094b3c22779df5e9679
+- transformers教程：https://www.bilibili.com/video/BV1KX4y1a7Jk
 - python高级进阶：开始看第七章
