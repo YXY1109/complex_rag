@@ -19,6 +19,8 @@ from minio import Minio
 from minio.error import S3Error
 from pydantic import BaseModel, Field
 
+logger = logging.getLogger(__name__)
+
 from ...interfaces.storage_interface import (
     StorageInterface,
     StorageConfig,
