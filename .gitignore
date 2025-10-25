@@ -180,3 +180,4 @@ cython_debug/
 /rag_service/qwen3/models/
 /.claude/
 /rag_service/pdf/output/
+/nul
