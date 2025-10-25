@@ -1,25 +1,32 @@
-black==25.1.0
-flake8==7.1.2
-isort==6.0.1
-mypy==1.15.0
-pre-commit==4.2.0
-pytest==8.3.5
+# Complex RAG Project Dependencies
+# This file is for compatibility with tools that don't support pyproject.toml yet
+# For development, please use: uv sync --dev
 
-redis==5.0.8
-celery==5.4.0
-fastapi==0.115.8
-uvicorn==0.34.0
-loguru==0.7.3
-python-multipart==0.0.20
-orjson==3.10.16
-python-dotenv==1.1.0
-sqlalchemy==2.0.40
-pymysql==1.1.1
-pymilvus==2.5.6
-pypinyin==0.54.0
-aiofiles==24.1.0
-minio==7.2.15
-requests==2.32.3
-langchain==0.3.24
-langchain-community==0.3.23
-elasticsearch==8.17.2
+# Core dependencies are managed in pyproject.toml
+# Install with: uv sync
+# Install with dev dependencies: uv sync --dev
+
+# If you need to use pip directly, you can export requirements with:
+# uv pip compile pyproject.toml -o requirements.txt
+
+# For backward compatibility, the main dependencies are:
+# fastapi>=0.115.0
+# sanic>=23.0.0
+# sqlalchemy>=2.0.0
+# pymilvus>=2.5.0
+# elasticsearch>=8.15.0
+# redis>=5.0.0
+# langchain>=0.3.0
+# loguru>=0.7.0
+# And many more - see pyproject.toml for complete list
+
+# Development tools (also in pyproject.toml):
+# black>=25.0.0
+# isort>=6.0.0
+# mypy>=1.15.0
+# pytest>=8.3.0
+# flake8>=7.1.0
+
+# Recommendation: Use uv for modern Python package management
+# Install uv: https://docs.astral.sh/uv/
+# Setup: python scripts/setup.py

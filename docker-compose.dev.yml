@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # RAG API服务 - 开发环境
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: complex-rag-api-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - RAG_HOST=0.0.0.0
+      - RAG_PORT=8000
+      - RAG_WORKERS=1
+      - RAG_RELOAD=true
+      - RAG_LOG_LEVEL=debug
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your-openai-key}
+    volumes:
+      - .:/app
+      - ~/.cache:/root/.cache
+    networks:
+      - rag-network
+    restart: unless-stopped
+    profiles:
+      - dev
+
+  # 开发工具服务
+  adminer:
+    image: adminer
+    container_name: rag-adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - rag-network
+    restart: unless-stopped
+    profiles:
+      - tools
+
+  # Redis管理界面
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: rag-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - rag-network
+    restart: unless-stopped
+    profiles:
+      - tools
+
+networks:
+  rag-network:
+    driver: bridge
