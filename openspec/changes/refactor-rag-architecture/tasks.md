@@ -68,17 +68,17 @@
   - [x] 3.5.4 配置告警和通知机制
 
 ## 4. 文档解析层实现（基于RAGFlow deepdoc + rag/app架构）
-- [ ] 4.1 实现文件来源检测和处理策略
-  - [ ] 4.1.1 实现文件来源自动检测器
-  - [ ] 4.1.2 实现处理策略选择器
-  - [ ] 4.1.3 配置不同来源的处理策略参数
-  - [ ] 4.1.4 实现处理质量监控机制
-- [ ] 4.2 实现来源专用处理器（参考RAGFlow rag/app）
-  - [ ] 4.2.1 实现web_documents处理器（HTML、Markdown、API文档）
-  - [ ] 4.2.2 实现office_documents处理器（PDF、DOCX、Excel、PPT）
-  - [ ] 4.2.3 实现scanned_documents处理器（OCR、图片、多模态）
-  - [ ] 4.2.4 实现structured_data处理器（JSON、CSV、XML、YAML）
-  - [ ] 4.2.5 实现code_repositories处理器（GitHub、代码文件、技术文档）
+- [x] 4.1 实现文件来源检测和处理策略 ✅
+  - [x] 4.1.1 实现文件来源自动检测器
+  - [x] 4.1.2 实现处理策略选择器
+  - [x] 4.1.3 配置不同来源的处理策略参数
+  - [x] 4.1.4 实现处理质量监控机制
+- [x] 4.2 实现来源专用处理器（参考RAGFlow rag/app） ✅
+  - [x] 4.2.1 实现web_documents处理器（HTML、Markdown、API文档）
+  - [x] 4.2.2 实现office_documents处理器（PDF、DOCX、Excel、PPT）
+  - [x] 4.2.3 实现scanned_documents处理器（OCR、图片、多模态）
+  - [x] 4.2.4 实现structured_data处理器（JSON、CSV、XML、YAML）
+  - [x] 4.2.5 实现code_repositories处理器（GitHub、代码文件、技术文档）
 - [ ] 4.3 集成RAGFlow视觉识别模块
   - [ ] 4.3.1 复制RAGFlow vision/ocr.py OCR文字识别
   - [ ] 4.3.2 复制RAGFlow vision/recognizer.py 基础识别器
