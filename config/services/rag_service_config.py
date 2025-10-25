@@ -4,9 +4,13 @@ RAG Service Configuration
 This module contains configuration specific to the Sanic RAG service.
 """
 
+from typing import Optional
 from pydantic import Field
 
 from ..settings import BaseConfig
+from ...rag_service.interfaces.llm_interface import LLMConfig
+from ...rag_service.interfaces.embedding_interface import EmbeddingConfig
+from ...rag_service.interfaces.rerank_interface import RerankConfig
 
 
 class RAGServiceConfig(BaseConfig):
@@ -105,6 +109,12 @@ class RAGServiceConfig(BaseConfig):
     health_check_enabled: bool = Field(default=True, env="RAG_HEALTH_CHECK_ENABLED")
     health_check_interval: int = Field(default=30, env="RAG_HEALTH_CHECK_INTERVAL")
     health_check_timeout: int = Field(default=5, env="RAG_HEALTH_CHECK_TIMEOUT")
+
+    # Service Configurations (for compatibility with service interfaces)
+    llm: Optional[LLMConfig] = Field(default=None, env="RAG_LLM_CONFIG")
+    embedding: Optional[EmbeddingConfig] = Field(default=None, env="RAG_EMBEDDING_CONFIG")
+    rerank: Optional[RerankConfig] = Field(default=None, env="RAG_RERANK_CONFIG")
+    memory: Optional[dict] = Field(default=None, env="RAG_MEMORY_CONFIG")
 
     @property
     def server_url(self) -> str:
