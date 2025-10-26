@@ -11,26 +11,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
-from config.settings import get_settings
+from config.settings_simple import get_settings
 from config.loguru_config import setup_logging, get_logger
-from infrastructure.monitoring.loguru_logger import logger
-from api.middleware import (
-    RequestLoggingMiddleware,
-    PerformanceMiddleware,
-    ErrorHandlingMiddleware,
-    RateLimitMiddleware,
-    LoadBalancerMiddleware,
-    CacheMiddleware,
-    AsyncOptimizationMiddleware,
-    MonitoringMiddleware,
-    rate_limit_manager,
-    load_balancer_manager,
-    cache_manager,
-    async_optimization_manager,
-    monitoring_manager
-)
-from api.exceptions import setup_exception_handlers
-from api.routers import chat, documents, knowledge, models, health, users, system, analytics
+
+# 设置日志
+logger = get_logger("api.main")
+from api.middleware_simple import setup_middleware
+from api.exceptions_simple import setup_exception_handlers
+# from api.routers import chat, documents, knowledge, models, health, users, system, analytics
+# 暂时注释掉旧路由，专注于统一路由
+from api.routers import unified_chat, unified_embeddings, unified_rerank, legacy_compatibility
 
 
 @asynccontextmanager
@@ -102,70 +92,43 @@ def create_fastapi_app() -> FastAPI:
             allowed_hosts=["*"]  # 生产环境应根据实际配置调整
         )
 
-    # 添加自定义中间件 - 按性能优化顺序排列
-    app.add_middleware(ErrorHandlingMiddleware)       # 错误处理中间件（最外层）
-
-    # 性能优化中间件层
-    app.add_middleware(RateLimitMiddleware)           # 请求限流中间件
-    app.add_middleware(LoadBalancerMiddleware)        # 负载均衡中间件
-    app.add_middleware(CacheMiddleware)               # 缓存中间件
-    app.add_middleware(AsyncOptimizationMiddleware)   # 异步优化中间件
-    app.add_middleware(MonitoringMiddleware)          # 监控中间件
-
-    # 基础中间件层
-    app.add_middleware(RequestLoggingMiddleware)      # 请求日志中间件
-    app.add_middleware(PerformanceMiddleware)         # 性能监控中间件
+    # 设置中间件
+    setup_middleware(app)
 
     # 设置异常处理器
     setup_exception_handlers(app)
 
-    # 注册路由模块
+    # 注册统一路由模块 (暂时注释掉旧路由)
+    # app.include_router(
+    #     health.router,
+    #     prefix="/api/health",
+    #     tags=["健康检查"]
+    # )
+    # ... 其他旧路由暂时注释
+
+    # 添加统一路由 (OpenAI兼容API)
     app.include_router(
-        health.router,
-        prefix="/api/health",
-        tags=["健康检查"]
+        unified_chat.router,
+        prefix="/v1/chat",
+        tags=["统一对话服务"]
     )
 
     app.include_router(
-        chat.router,
-        prefix="/api/chat",
-        tags=["对话服务"]
+        unified_embeddings.router,
+        prefix="/v1/embeddings",
+        tags=["统一嵌入服务"]
     )
 
     app.include_router(
-        documents.router,
-        prefix="/api/documents",
-        tags=["文档管理"]
+        unified_rerank.router,
+        prefix="/v1/rerank",
+        tags=["统一重排序服务"]
     )
 
+    # 添加向后兼容性路由
     app.include_router(
-        knowledge.router,
-        prefix="/api/knowledge",
-        tags=["知识库管理"]
-    )
-
-    app.include_router(
-        models.router,
-        prefix="/api/models",
-        tags=["模型管理"]
-    )
-
-    app.include_router(
-        users.router,
-        prefix="/api/users",
-        tags=["用户管理"]
-    )
-
-    app.include_router(
-        system.router,
-        prefix="/api/system",
-        tags=["系统管理"]
-    )
-
-    app.include_router(
-        analytics.router,
-        prefix="/api/analytics",
-        tags=["统计分析"]
+        legacy_compatibility.router,
+        tags=["向后兼容性"]
     )
 
     # 根路径
