@@ -319,7 +319,7 @@ known-first-party = ["complex_rag"]
 
 # Hatch - Build System
 [tool.hatch.build.targets.wheel]
-packages = ["complex_rag"]
+# 使用根目录结构，无需特定包配置
 
 [tool.hatch.envs.default]
 dependencies = [
