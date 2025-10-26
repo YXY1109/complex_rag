@@ -4,15 +4,42 @@
 """
 
 import time
+import asyncio
 from typing import Dict, Any, List, Union, Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from config.loguru_config import get_logger
+from services.unified_embedding_service import UnifiedEmbeddingService
+from config.settings_simple import get_settings
 
 # 创建路由器
 router = APIRouter()
 structured_logger = get_logger("api.unified_embeddings")
+
+# 全局服务实例
+_embedding_service: Optional[UnifiedEmbeddingService] = None
+_settings = get_settings()
+
+async def get_embedding_service() -> UnifiedEmbeddingService:
+    """获取统一嵌入服务实例"""
+    global _embedding_service
+    if _embedding_service is None:
+        try:
+            _embedding_service = UnifiedEmbeddingService()
+            await _embedding_service.initialize()
+            structured_logger.info("统一嵌入服务初始化成功")
+        except Exception as e:
+            structured_logger.error(f"统一嵌入服务初始化失败: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "message": "Embedding service initialization failed",
+                    "type": "service_initialization_error",
+                    "code": "embedding_service_error"
+                }
+            )
+    return _embedding_service
 
 
 # Pydantic模型定义
@@ -116,9 +143,56 @@ async def create_embeddings(
             }
         )
 
-        # TODO: 集成实际的嵌入服务
-        # 这里暂时返回模拟嵌入向量
-        response = await _create_mock_embeddings(embedding_request, request_id, start_time)
+        # 集成实际的嵌入服务
+        embedding_service = await get_embedding_service()
+
+        # 处理输入文本
+        input_texts = embedding_request.input
+        if isinstance(input_texts, str):
+            input_texts = [input_texts]
+
+        # 确定使用的模型/提供商
+        model_name = embedding_request.model
+        provider_name = _settings.embedding_default_provider
+
+        # 如果指定了特定的模型，尝试映射到提供商
+        if model_name:
+            if "qwen" in model_name.lower():
+                provider_name = "qwen3"
+            elif "bce" in model_name.lower() or "bge" in model_name.lower():
+                provider_name = "bce"
+            else:
+                provider_name = "generic"
+
+        # 生成嵌入向量
+        embeddings = await embedding_service.embed_texts(
+            texts=input_texts,
+            provider_name=provider_name,
+            model_name=model_name,
+            input_type=embedding_request.input_type
+        )
+
+        # 构造响应
+        data = []
+        for i, embedding in enumerate(embeddings):
+            embedding_data = EmbeddingData(
+                embedding=embedding,
+                index=i
+            )
+            data.append(embedding_data)
+
+        # 估算token使用量
+        total_chars = sum(len(text) for text in input_texts)
+        estimated_tokens = total_chars // 4  # 简单估算
+
+        response = EmbeddingResponse(
+            data=data,
+            model=model_name,
+            usage=EmbeddingUsage(
+                prompt_tokens=estimated_tokens,
+                total_tokens=estimated_tokens
+            )
+        )
 
         return response
 
@@ -155,51 +229,24 @@ async def list_embedding_models(request: Request) -> Dict[str, Any]:
     request_id = getattr(request.state, "request_id", "unknown")
 
     try:
-        # TODO: 从实际嵌入服务获取模型列表
-        # 这里返回模拟模型列表
-        mock_models = [
-            {
-                "id": "text-embedding-ada-002",
-                "embedding": {
-                    "dimensions": 1536,
-                    "max_input_length": 8192,
-                    "max_batch_size": 100,
-                    "supports_batch": True,
-                    "supports_different_input_types": True,
-                    "supports_custom_dimensions": False,
-                }
-            },
-            {
-                "id": "Qwen3-Embedding-0.6B",
-                "embedding": {
-                    "dimensions": 768,
-                    "max_input_length": 4096,
-                    "max_batch_size": 64,
-                    "supports_batch": True,
-                    "supports_different_input_types": True,
-                    "supports_custom_dimensions": False,
-                }
-            },
-            {
-                "id": "bge-large-zh-v1.5",
-                "embedding": {
-                    "dimensions": 1024,
-                    "max_input_length": 512,
-                    "max_batch_size": 32,
-                    "supports_batch": True,
-                    "supports_different_input_types": False,
-                    "supports_custom_dimensions": False,
-                }
-            }
-        ]
+        # 从实际嵌入服务获取模型列表
+        embedding_service = await get_embedding_service()
+        available_providers = embedding_service.list_providers()
 
         models = []
-        for model_data in mock_models:
+        for provider_name, provider in available_providers.items():
             model_info = EmbeddingModelInfo(
-                id=model_data["id"],
+                id=f"{provider_name}-{provider.name}",
                 created=int(time.time()),
                 owned_by="unified-rag-service",
-                embedding=ModelEmbeddingInfo(**model_data["embedding"])
+                embedding=ModelEmbeddingInfo(
+                    dimensions=provider.dimension,
+                    max_input_length=provider.max_seq_length,
+                    max_batch_size=provider.batch_size,
+                    supports_batch=True,
+                    supports_different_input_types=True,
+                    supports_custom_dimensions=False,
+                )
             )
             models.append(model_info.dict())
 
@@ -264,27 +311,52 @@ async def compute_similarity(
             }
         )
 
-        # TODO: 集成实际的相似度计算
-        # 这里返回模拟相似度分数
-        mock_similarity_score = 0.85  # 模拟相似度分数
+        # 集成实际的相似度计算
+        embedding_service = await get_embedding_service()
+
+        # 确定使用的提供商
+        provider_name = _settings.embedding_default_provider
+        if similarity_request.model:
+            if "qwen" in similarity_request.model.lower():
+                provider_name = "qwen3"
+            elif "bce" in similarity_request.model.lower() or "bge" in similarity_request.model.lower():
+                provider_name = "bce"
+            else:
+                provider_name = "generic"
+
+        # 计算相似度
+        similarity_score = await embedding_service.compute_similarity(
+            text1=similarity_request.text1,
+            text2=similarity_request.text2,
+            provider_name=provider_name,
+            metric=similarity_request.metric
+        )
 
         structured_logger.info(
             "相似度计算完成",
             extra={
                 "request_id": request_id,
-                "model": similarity_request.model or "default",
+                "model": similarity_request.model or provider_name,
+                "provider": provider_name,
                 "metric": similarity_request.metric,
-                "similarity_score": mock_similarity_score,
+                "similarity_score": similarity_score,
+                "embedding_dimensions": embedding_dimensions,
             }
         )
 
+        # 获取提供商信息以提供准确的维度信息
+        providers = embedding_service.list_providers()
+        provider = providers.get(provider_name) or providers.get("generic")
+        embedding_dimensions = getattr(provider, 'dimension', 768) if provider else 768
+
         return {
-            "similarity_score": mock_similarity_score,
+            "similarity_score": similarity_score,
             "metric": similarity_request.metric,
-            "model": similarity_request.model or "default",
+            "model": similarity_request.model or provider_name,
+            "provider": provider_name,
             "text1_length": len(similarity_request.text1),
             "text2_length": len(similarity_request.text2),
-            "embedding_dimensions": 768,  # 模拟嵌入维度
+            "embedding_dimensions": embedding_dimensions,
         }
 
     except Exception as e:
@@ -348,9 +420,71 @@ async def batch_embeddings(
             }
         )
 
-        # TODO: 集成实际的批量向量化服务
-        # 这里返回模拟嵌入向量
-        response = await _create_mock_batch_embeddings(batch_request, request_id, start_time)
+        # 集成实际的批量向量化服务
+        embedding_service = await get_embedding_service()
+
+        # 确定使用的提供商
+        provider_name = _settings.embedding_default_provider
+        if batch_request.model:
+            if "qwen" in batch_request.model.lower():
+                provider_name = "qwen3"
+            elif "bce" in batch_request.model.lower() or "bge" in batch_request.model.lower():
+                provider_name = "bce"
+            else:
+                provider_name = "generic"
+
+        # 生成批量嵌入向量
+        embeddings = await embedding_service.embed_texts(
+            texts=batch_request.texts,
+            provider_name=provider_name,
+            model_name=batch_request.model,
+            input_type=batch_request.input_type,
+            batch_size=batch_request.batch_size
+        )
+
+        # 构造响应
+        data = []
+        for i, embedding in enumerate(embeddings):
+            embedding_data = {
+                "object": "embedding",
+                "embedding": embedding,
+                "index": i,
+            }
+            data.append(embedding_data)
+
+        # 估算token使用量
+        total_chars = sum(len(text) for text in batch_request.texts)
+        estimated_tokens = total_chars // 4  # 简单估算
+
+        structured_logger.info(
+            "批量向量化完成",
+            extra={
+                "request_id": request_id,
+                "model": batch_request.model or provider_name,
+                "provider": provider_name,
+                "embeddings_count": len(data),
+                "embedding_dimensions": len(data[0]["embedding"]) if data else 0,
+                "estimated_tokens": estimated_tokens,
+                "processing_time_seconds": round(time.time() - start_time, 3),
+                "throughput_texts_per_second": round(len(batch_request.texts) / (time.time() - start_time), 2),
+            }
+        )
+
+        response = {
+            "object": "list",
+            "data": data,
+            "model": batch_request.model or provider_name,
+            "usage": {
+                "prompt_tokens": estimated_tokens,
+                "total_tokens": estimated_tokens,
+            },
+            "processing_info": {
+                "batch_size": batch_request.batch_size,
+                "processing_time_seconds": round(time.time() - start_time, 3),
+                "throughput_texts_per_second": round(len(batch_request.texts) / (time.time() - start_time), 2),
+                "provider": provider_name,
+            }
+        }
 
         return response
 
@@ -373,132 +507,6 @@ async def batch_embeddings(
         )
 
 
-async def _create_mock_embeddings(
-    embedding_request: EmbeddingRequest,
-    request_id: str,
-    start_time: float
-) -> EmbeddingResponse:
-    """
-    创建模拟嵌入向量响应
-
-    Args:
-        embedding_request: 嵌入请求
-        request_id: 请求ID
-        start_time: 开始时间
-
-    Returns:
-        EmbeddingResponse: 模拟响应
-    """
-    processing_time = time.time() - start_time
-
-    # 处理输入文本
-    input_texts = embedding_request.input
-    if isinstance(input_texts, str):
-        input_texts = [input_texts]
-
-    # 创建模拟嵌入向量
-    data = []
-    for i, text in enumerate(input_texts):
-        # 生成固定长度的模拟嵌入向量
-        embedding_dimensions = embedding_request.dimensions or 1536
-        mock_embedding = [0.1 + (i * 0.01) % 1.0] * embedding_dimensions
-
-        embedding_data = EmbeddingData(
-            embedding=mock_embedding,
-            index=i
-        )
-        data.append(embedding_data)
-
-    # 估算token使用量
-    total_chars = sum(len(text) for text in input_texts)
-    estimated_tokens = total_chars // 4  # 简单估算
-
-    response = EmbeddingResponse(
-        data=data,
-        model=embedding_request.model,
-        usage=EmbeddingUsage(
-            prompt_tokens=estimated_tokens,
-            total_tokens=estimated_tokens
-        )
-    )
-
-    structured_logger.info(
-        "向量化完成",
-        extra={
-            "request_id": request_id,
-            "model": response.model,
-            "embeddings_count": len(response.data),
-            "embedding_dimensions": len(response.data[0].embedding) if response.data else 0,
-            "prompt_tokens": response.usage.prompt_tokens,
-            "processing_time_seconds": round(processing_time, 3),
-        }
-    )
-
-    return response
-
-
-async def _create_mock_batch_embeddings(
-    batch_request: BatchEmbeddingRequest,
-    request_id: str,
-    start_time: float
-) -> Dict[str, Any]:
-    """
-    创建模拟批量嵌入向量响应
-
-    Args:
-        batch_request: 批量嵌入请求
-        request_id: 请求ID
-        start_time: 开始时间
-
-    Returns:
-        Dict: 批量嵌入响应
-    """
-    processing_time = time.time() - start_time
-
-    # 创建模拟嵌入向量
-    data = []
-    for i, text in enumerate(batch_request.texts):
-        # 生成固定长度的模拟嵌入向量
-        mock_embedding = [0.2 + (i * 0.02) % 1.0] * 768
-
-        embedding_data = {
-            "object": "embedding",
-            "embedding": mock_embedding,
-            "index": i,
-        }
-        data.append(embedding_data)
-
-    # 估算token使用量
-    total_chars = sum(len(text) for text in batch_request.texts)
-    estimated_tokens = total_chars // 4  # 简单估算
-
-    structured_logger.info(
-        "批量向量化完成",
-        extra={
-            "request_id": request_id,
-            "model": batch_request.model or "default",
-            "embeddings_count": len(data),
-            "embedding_dimensions": len(data[0]["embedding"]) if data else 0,
-            "estimated_tokens": estimated_tokens,
-            "processing_time_seconds": round(processing_time, 3),
-            "throughput_texts_per_second": round(len(batch_request.texts) / processing_time, 2),
-        }
-    )
-
-    return {
-        "object": "list",
-        "data": data,
-        "model": batch_request.model or "default",
-        "usage": {
-            "prompt_tokens": estimated_tokens,
-            "total_tokens": estimated_tokens,
-        },
-        "processing_info": {
-            "batch_size": batch_request.batch_size,
-            "processing_time_seconds": round(processing_time, 3),
-            "throughput_texts_per_second": round(len(batch_request.texts) / processing_time, 2),
-        }
-    }
 
 
 structured_logger.info("统一嵌入路由加载完成")

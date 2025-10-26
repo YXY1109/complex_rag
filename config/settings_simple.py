@@ -65,6 +65,14 @@ class Settings(BaseSettings):
     # 重排序模型配置
     rerank_model: str = "bge-reranker-base"
 
+    # 统一嵌入服务配置
+    embedding_providers_config: str = "config/embedding_providers.json"
+    embedding_cache_enabled: bool = True
+    embedding_cache_ttl: int = 3600  # 1小时
+    embedding_default_provider: str = "bce"
+    embedding_max_batch_size: int = 32
+    embedding_device: str = "cpu"  # cpu, cuda, mps
+
     # LLM配置
     default_llm_model: str = "gpt-3.5-turbo"
     max_tokens: int = 2048

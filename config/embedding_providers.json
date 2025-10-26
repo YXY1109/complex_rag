@@ -1,0 +1,52 @@
+{
+  "providers": {
+    "bce": {
+      "name": "BCE Embedding Service",
+      "model_type": "sentence_transformers",
+      "model_path": "models/bce/paraphrase-multilingual-MiniLM-L12-v2",
+      "device": "cpu",
+      "dimension": 384,
+      "max_seq_length": 512,
+      "batch_size": 32,
+      "normalize_embeddings": true,
+      "cache_enabled": true,
+      "description": "Baidu Cloud Embedding compatible service using SentenceTransformers"
+    },
+    "qwen3": {
+      "name": "Qwen3 Embedding Service",
+      "model_type": "transformers",
+      "model_path": "models/qwen3/Qwen3-6B-Embedding",
+      "device": "cpu",
+      "dimension": 3072,
+      "max_seq_length": 32768,
+      "batch_size": 16,
+      "normalize_embeddings": true,
+      "cache_enabled": true,
+      "trust_remote_code": true,
+      "description": "Alibaba Qwen3 embedding service using Transformers"
+    },
+    "generic": {
+      "name": "Generic Embedding Service",
+      "model_type": "sentence_transformers",
+      "model_path": "models/generic/all-MiniLM-L6-v2",
+      "device": "cpu",
+      "dimension": 384,
+      "max_seq_length": 512,
+      "batch_size": 64,
+      "normalize_embeddings": true,
+      "cache_enabled": true,
+      "description": "Generic embedding service supporting multiple model types"
+    }
+  },
+  "default_provider": "bce",
+  "cache_settings": {
+    "enabled": true,
+    "ttl_seconds": 3600,
+    "max_size": 1000
+  },
+  "performance_settings": {
+    "max_concurrent_requests": 10,
+    "timeout_seconds": 30,
+    "retry_attempts": 3
+  }
+}
