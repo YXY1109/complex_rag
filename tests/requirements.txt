@@ -1,0 +1,43 @@
+# 测试依赖包
+
+# 核心测试框架
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.1
+pytest-timeout>=2.1.0
+pytest-xdist>=3.3.1
+
+# 异步测试支持
+asynctest>=0.13.0
+aioresponses>=0.7.4
+
+# HTTP测试
+httpx>=0.24.1
+requests-mock>=1.11.0
+
+# 数据库测试
+factory-boy>=3.3.0
+faker>=19.6.2
+freezegun>=1.2.2
+
+# 性能测试
+pytest-benchmark>=4.0.0
+pytest-profiling>=1.7.0
+
+# 代码质量测试
+pytest-flake8>=1.1.1
+pytest-isort>=3.1.0
+pytest-mypy>=0.10.3
+
+# 文档测试
+pytest-docs>=0.12.0
+
+# 测试报告
+pytest-html>=3.2.0
+pytest-json-report>=1.5.0
+allure-pytest>=2.13.2
+
+# 其他工具
+coverage>=7.3.0
+tox>=4.11.3
