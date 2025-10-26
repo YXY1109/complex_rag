@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Modern, high-performance, enterprise-grade RAG system with RAGFlow integration"
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 authors = [
     {name = "RAG Team", email = "team@example.com"},
 ]

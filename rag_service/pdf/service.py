@@ -6,7 +6,6 @@ current_dir = os.getcwd()
 os.environ["MINERU_TOOLS_CONFIG_JSON"] = os.path.join(current_dir, "magic-pdf-server.json")
 
 import aiofiles
-from celery_app import long_task
 from magic_pdf.config.enums import SupportedPdfParseMethod
 from magic_pdf.data.data_reader_writer import FileBasedDataReader, FileBasedDataWriter
 from magic_pdf.data.dataset import PymuDocDataset
@@ -34,14 +33,6 @@ async def test(request):
     formatted_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return response.json({"test": f"我是pdf测试接口：{formatted_now}"}, status=200)
 
-
-@app.route("/celery_test", methods=["POST"])
-async def celery_test(request):
-    print("celery_test")
-    # task = long_task.delay("test")
-    task = long_task.apply_async(args=["yxy", 30], queue="yxy")
-    print(f"任务id为：{task.id}")
-    return response.json({"test": f"我是celery_test:{task.id}"}, status=200)
 
 
 @app.route("/pdf_to_md", methods=["POST"])

@@ -57,7 +57,7 @@ class ServicePerformanceTester:
         """测试Sanic静态文件服务性能"""
         # 假设有一个静态文件端点
         static_paths = [
-            "/static/test.txt",
+            "/assets/static_resources/test.txt",
             "/favicon.ico",
             "/robots.txt"
         ]

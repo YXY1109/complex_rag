@@ -17,7 +17,7 @@ from src.utils.logger import logger
 # 使用本地静态文件
 def swagger_monkey_patch(*args, **kwargs):
     return get_swagger_ui_html(
-        *args, **kwargs, swagger_js_url="./static/swagger-ui-bundle.js", swagger_css_url="./static/swagger-ui.css"
+        *args, **kwargs, swagger_js_url="./assets/static_resources/swagger-ui-bundle.js", swagger_css_url="./assets/static_resources/swagger-ui.css"
     )
 
 
@@ -68,10 +68,10 @@ async def add_process_time_header(request: Request, call_next):
 if __name__ == "__main__":
     if settings.DEBUG:
         logger.info("启动本地调试模式")
-        uvicorn.run(app="app_fastapi:app", host=settings.SERVER_HOST, port=settings.SERVER_PORT)
+        uvicorn.run(app="scripts.app_fastapi:app", host=settings.SERVER_HOST, port=settings.SERVER_PORT)
     else:
         logger.info("启动生产模式")
         # 正式使用，后台服务
-        # gunicorn app_fastapi:app -c gunicorn.py
+        # gunicorn scripts.app_fastapi:app -c scripts/gunicon.py
         # 调试使用，前台服务
-        # uvicorn.run(app="app_fastapi:app", host=run_host, port=run_port, reload=is_debug)
+        # uvicorn.run(app="scripts.app_fastapi:app", host=run_host, port=run_port, reload=is_debug)

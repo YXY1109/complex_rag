@@ -18,17 +18,17 @@ worker_class = "uvicorn.workers.UvicornWorker"  # FastAPI时，使用uvicorn【�
 # 设置最大并发量
 worker_connections = 2000
 # 设置进程文件目录
-pidfile = "./gunicorn.pid"
+pidfile = "../gunicorn.pid"
 # 工作目录
-chdir = "./"
+chdir = "../"
 # 设置访问日志和错误信息日志路径
-log_dir = "./log"
+log_dir = "../logs"
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 # 设置访问日志和错误信息日志路径
 date_time = time.strftime("%Y-%m-%d_%H", time.localtime(time.time()))
-accesslog = "./log/gunicorn_access.log"
-errorlog = "./log/gunicorn_error.log"
+accesslog = "../logs/gunicorn_access.log"
+errorlog = "../logs/gunicorn_error.log"
 # 日志级别，这个日志级别指的是错误日志的级别，而访问日志的级别无法设置
 loglevel = "debug"
 # 设置print的输出
