@@ -17,10 +17,20 @@ from infrastructure.monitoring.loguru_logger import logger
 from api.middleware import (
     RequestLoggingMiddleware,
     PerformanceMiddleware,
-    ErrorHandlingMiddleware
+    ErrorHandlingMiddleware,
+    RateLimitMiddleware,
+    LoadBalancerMiddleware,
+    CacheMiddleware,
+    AsyncOptimizationMiddleware,
+    MonitoringMiddleware,
+    rate_limit_manager,
+    load_balancer_manager,
+    cache_manager,
+    async_optimization_manager,
+    monitoring_manager
 )
 from api.exceptions import setup_exception_handlers
-from api.routers import chat, documents, knowledge, models, health
+from api.routers import chat, documents, knowledge, models, health, users, system, analytics
 
 
 @asynccontextmanager
@@ -92,10 +102,19 @@ def create_fastapi_app() -> FastAPI:
             allowed_hosts=["*"]  # 生产环境应根据实际配置调整
         )
 
-    # 添加自定义中间件
-    app.add_middleware(ErrorHandlingMiddleware)  # 错误处理中间件（最外层）
-    app.add_middleware(RequestLoggingMiddleware)  # 请求日志中间件
-    app.add_middleware(PerformanceMiddleware)    # 性能监控中间件
+    # 添加自定义中间件 - 按性能优化顺序排列
+    app.add_middleware(ErrorHandlingMiddleware)       # 错误处理中间件（最外层）
+
+    # 性能优化中间件层
+    app.add_middleware(RateLimitMiddleware)           # 请求限流中间件
+    app.add_middleware(LoadBalancerMiddleware)        # 负载均衡中间件
+    app.add_middleware(CacheMiddleware)               # 缓存中间件
+    app.add_middleware(AsyncOptimizationMiddleware)   # 异步优化中间件
+    app.add_middleware(MonitoringMiddleware)          # 监控中间件
+
+    # 基础中间件层
+    app.add_middleware(RequestLoggingMiddleware)      # 请求日志中间件
+    app.add_middleware(PerformanceMiddleware)         # 性能监控中间件
 
     # 设置异常处理器
     setup_exception_handlers(app)
