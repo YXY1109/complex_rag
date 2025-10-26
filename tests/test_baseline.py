@@ -14,7 +14,7 @@ def test_configuration_exists():
     print("Testing configuration files...")
 
     # Main configuration
-    config_path = Path("config/settings.py")
+    config_path = Path("../config/settings.py")
     if config_path.exists():
         print("[PASS] Main configuration file exists")
     else:
@@ -22,7 +22,7 @@ def test_configuration_exists():
         return False
 
     # Docker configuration
-    docker_compose_path = Path("docker/docker-compose.yml")
+    docker_compose_path = Path("../docker/docker-compose.yml")
     if docker_compose_path.exists():
         print("[PASS] Docker compose file exists")
     else:
