@@ -154,7 +154,7 @@ class MemoryCache:
             "misses": 0,
             "evictions": 0,
             "sets": 0,
-            "deletes": 0"
+            "deletes": 0
         }
 
     def get(self, key: str) -> Optional[CacheEntry]:
