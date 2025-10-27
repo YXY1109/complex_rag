@@ -26,8 +26,7 @@ classifiers = [
 dependencies = [
     # Core Framework
     "fastapi>=0.115.0",
-    "sanic>=23.0.0",
-    "uvicorn[standard]>=0.30.0",
+      "uvicorn[standard]>=0.30.0",
 
     # Async and Task Processing
     "trio>=0.25.0",
@@ -200,7 +199,7 @@ profile = "black"
 multi_line_output = 3
 line_length = 88
 known_first_party = ["complex_rag"]
-known_third_party = ["fastapi", "sanic", "sqlalchemy", "langchain", "pydantic"]
+known_third_party = ["fastapi", "sqlalchemy", "langchain", "pydantic"]
 skip_glob = ["*/migrations/*"]
 
 # MyPy - Type Checking

@@ -72,6 +72,18 @@ vim .env
 
 ### 3. 启动服务
 
+#### 选项1：统一FastAPI服务（推荐）
+
+```bash
+# Linux/macOS
+./deploy-unified.sh deploy
+
+# Windows
+deploy-unified.bat
+```
+
+#### 选项2：传统部署方式
+
 ```bash
 # 开发环境
 ./deployment/scripts/deploy.sh dev --build --seed
@@ -82,13 +94,50 @@ vim .env
 
 ### 4. 验证部署
 
+#### 统一服务
+
 ```bash
 # 检查服务状态
-curl http://localhost:8000/health
+curl http://localhost:8000/health/ping
+
+# 查看详细健康状态
+curl http://localhost:8000/health/detailed
 
 # 查看API文档
 open http://localhost:8000/docs
+
+# 查看OpenAPI规范
+open http://localhost:8000/openapi.json
 ```
+
+#### 管理命令
+
+```bash
+# 查看服务日志
+./deploy-unified.sh logs
+
+# 查看服务状态
+./deploy-unified.sh status
+
+# 重启服务
+./deploy-unified.sh update
+
+# 停止服务
+./deploy-unified.sh stop
+
+# 清理部署
+./deploy-unified.sh cleanup
+```
+
+#### 独立服务端点
+
+统一服务包含以下主要端点：
+
+- **聊天服务**: `POST /v1/chat/completions`
+- **嵌入服务**: `POST /v1/embeddings/`
+- **重排序服务**: `POST /v1/rerank/`
+- **记忆管理**: `/v1/memory/*`
+- **健康检查**: `/health/*`
 
 ## 🔧 配置说明
 

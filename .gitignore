@@ -181,3 +181,4 @@ cython_debug/
 /.claude/
 /rag_service/pdf/output/
 /nul
+/rag_service/services_legacy/qwen3/

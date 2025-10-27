@@ -1,0 +1,228 @@
+version: '3.8'
+
+services:
+  # 统一FastAPI RAG服务
+  unified-rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.unified
+    container_name: complex-rag-unified
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=production
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=info
+      # 数据库配置
+      - DATABASE_HOST=mysql
+      - DATABASE_PORT=3306
+      - DATABASE_NAME=${DATABASE_NAME:-complex_rag}
+      - DATABASE_USER=${DATABASE_USER:-raguser}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-ragpass}
+      # Redis配置
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      # Milvus配置
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+      # Elasticsearch配置
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      # MinIO配置
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET=${MINIO_BUCKET:-rag-documents}
+      # AI模型配置
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    depends_on:
+      - mysql
+      - redis
+      - milvus
+      - elasticsearch
+      - minio
+    restart: unless-stopped
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: complex-rag-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DATABASE_NAME:-complex_rag}
+      - MYSQL_USER=${DATABASE_USER:-raguser}
+      - MYSQL_PASSWORD=${DATABASE_PASSWORD:-ragpass}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./config/mysql/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    networks:
+      - rag-network
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Redis缓存服务
+  redis:
+    image: redis:7.0-alpine
+    container_name: complex-rag-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+    networks:
+      - rag-network
+    command: redis-server /usr/local/etc/redis/redis.conf
+
+  # Milvus向量数据库（使用独立配置）
+  milvus:
+    image: milvusdb/milvus:v2.5.0
+    container_name: complex-rag-milvus
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    volumes:
+      - milvus_data:/var/lib/milvus
+    ports:
+      - "${MILVUS_PORT:-19530}:19530"
+      - "9091:9091"
+      - "9092:9092"
+    depends_on:
+      - etcd
+      - minio
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+  # Milvus依赖服务
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: complex-rag-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd_data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+  # MinIO对象存储服务
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: complex-rag-minio
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+  # Elasticsearch搜索引擎
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: complex-rag-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+  # Kibana可视化界面
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: complex-rag-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+  # Ollama本地模型服务（可选）
+  ollama:
+    image: ollama/ollama:latest
+    container_name: complex-rag-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - rag-network
+    profiles:
+      - ollama
+
+  # Nginx反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: complex-rag-nginx
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_SSL_PORT:-443}:443"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./config/nginx/conf.d:/etc/nginx/conf.d
+      - ./logs/nginx:/var/log/nginx
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - unified-rag-api
+    restart: unless-stopped
+    networks:
+      - rag-network
+    profiles:
+      - nginx
+
+# 数据卷
+volumes:
+  mysql_data:
+  redis_data:
+  milvus_data:
+  etcd_data:
+  minio_data:
+  elasticsearch_data:
+  ollama_data:
+
+# 网络
+networks:
+  rag-network:
+    driver: bridge

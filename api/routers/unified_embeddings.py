@@ -1,55 +1,30 @@
 """
 统一嵌入路由
-迁移Sanic RAG服务的嵌入功能到FastAPI
+基于统一嵌入服务架构的FastAPI路由，支持BCE、Qwen3、OpenAI等多种嵌入模型
 """
 
 import time
-import asyncio
 from typing import Dict, Any, List, Union, Optional
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel, Field
 
 from config.loguru_config import get_logger
-from services.unified_embedding_service import UnifiedEmbeddingService
-from config.settings_simple import get_settings
 
 # 创建路由器
 router = APIRouter()
 structured_logger = get_logger("api.unified_embeddings")
 
-# 全局服务实例
-_embedding_service: Optional[UnifiedEmbeddingService] = None
-_settings = get_settings()
 
-async def get_embedding_service() -> UnifiedEmbeddingService:
-    """获取统一嵌入服务实例"""
-    global _embedding_service
-    if _embedding_service is None:
-        try:
-            _embedding_service = UnifiedEmbeddingService()
-            await _embedding_service.initialize()
-            structured_logger.info("统一嵌入服务初始化成功")
-        except Exception as e:
-            structured_logger.error(f"统一嵌入服务初始化失败: {e}")
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    "message": "Embedding service initialization failed",
-                    "type": "service_initialization_error",
-                    "code": "embedding_service_error"
-                }
-            )
-    return _embedding_service
-
-
-# Pydantic模型定义
+# OpenAI兼容的请求模型定义
 class EmbeddingRequest(BaseModel):
     input: Union[str, List[str]] = Field(..., description="输入文本或文本列表")
-    model: str = Field(..., description="使用的模型")
-    encoding_format: Optional[str] = Field("float", description="编码格式")
+    model: str = Field(None, description="使用的嵌入模型名称，为空时使用默认模型")
+    encoding_format: Optional[str] = Field("float", description="嵌入编码格式")
     dimensions: Optional[int] = Field(None, description="嵌入维度")
     user: Optional[str] = Field(None, description="用户标识")
-    input_type: Optional[str] = Field(None, description="输入类型")
+    normalize: Optional[bool] = Field(True, description="是否对嵌入向量进行归一化")
+    use_cache: Optional[bool] = Field(True, description="是否使用缓存")
+    batch_size: Optional[int] = Field(None, description="批量处理大小")
 
 
 class EmbeddingData(BaseModel):
@@ -73,11 +48,330 @@ class EmbeddingResponse(BaseModel):
 class SimilarityRequest(BaseModel):
     text1: str = Field(..., description="第一个文本")
     text2: str = Field(..., description="第二个文本")
-    model: Optional[str] = Field(None, description="使用的模型")
+    model: Optional[str] = Field(None, description="使用的嵌入模型名称")
     metric: Optional[str] = Field("cosine", description="相似度计算方法")
 
 
-class BatchEmbeddingRequest(BaseModel):
+class SimilarityResponse(BaseModel):
+    similarity_score: float
+    model: str
+    processing_time: float
+
+
+class ModelInfo(BaseModel):
+    name: str
+    type: str
+    dimension: int
+    max_length: int
+    loaded: bool
+    is_default: bool
+    priority: int
+
+
+class ModelsResponse(BaseModel):
+    object: str = "list"
+    data: List[ModelInfo]
+
+
+def get_embedding_service(request: Request):
+    """从应用状态获取统一嵌入服务实例"""
+    embedding_service = getattr(request.app.state, 'embedding_service', None)
+    if not embedding_service:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "统一嵌入服务不可用",
+                "type": "service_unavailable",
+                "code": "embedding_service_unavailable"
+            }
+        )
+    return embedding_service
+
+
+@router.post("/", response_model=EmbeddingResponse, summary="生成文本嵌入向量")
+async def create_embeddings(request: Request, embedding_request: EmbeddingRequest):
+    """
+    生成文本嵌入向量（OpenAI兼容接口）
+
+    支持BCE、Qwen3、OpenAI等多种嵌入模型，自动处理批量请求和缓存。
+
+    Args:
+        request: FastAPI请求对象
+        embedding_request: 嵌入请求参数
+
+    Returns:
+        EmbeddingResponse: 嵌入向量响应
+    """
+    try:
+        embedding_service = get_embedding_service(request)
+
+        # 记录请求信息
+        structured_logger.info(
+            "嵌入向量生成请求",
+            extra={
+                "input_length": len(str(embedding_request.input)),
+                "model": embedding_request.model,
+                "batch_mode": isinstance(embedding_request.input, list)
+            }
+        )
+
+        # 创建统一嵌入服务请求
+        unified_request = embedding_service.__class__.__module__.split('.')[0]  # 获取类名
+
+        # 调用统一嵌入服务
+        from rag_service.services.unified_embedding_service import EmbeddingRequest as UnifiedRequest
+
+        unified_req = UnifiedRequest(
+            texts=embedding_request.input,
+            model_name=embedding_request.model,
+            normalize=embedding_request.normalize,
+            use_cache=embedding_request.use_cache,
+            batch_size=embedding_request.batch_size
+        )
+
+        # 生成嵌入向量
+        response = await embedding_service.embed(unified_req)
+
+        # 转换为OpenAI兼容格式
+        embedding_data = []
+        for i, embedding in enumerate(response.embeddings):
+            embedding_data.append(EmbeddingData(
+                object="embedding",
+                embedding=embedding,
+                index=i
+            ))
+
+        openai_response = EmbeddingResponse(
+            object="list",
+            data=embedding_data,
+            model=response.model_name,
+            usage=EmbeddingUsage(
+                prompt_tokens=response.usage.get("prompt_tokens", 0),
+                total_tokens=response.usage.get("total_tokens", 0)
+            )
+        )
+
+        structured_logger.info(
+            "嵌入向量生成完成",
+            extra={
+                "model": response.model_name,
+                "embedding_count": len(response.embeddings),
+                "cached_count": response.cached_count,
+                "processing_time": response.processing_time
+            }
+        )
+
+        return openai_response
+
+    except Exception as e:
+        structured_logger.error(f"嵌入向量生成失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"嵌入向量生成失败: {str(e)}")
+
+
+@router.post("/similarity", response_model=SimilarityResponse, summary="计算文本相似度")
+async def compute_similarity(request: Request, similarity_request: SimilarityRequest):
+    """
+    计算两个文本的相似度
+
+    Args:
+        request: FastAPI请求对象
+        similarity_request: 相似度计算请求
+
+    Returns:
+        SimilarityResponse: 相似度计算结果
+    """
+    try:
+        embedding_service = get_embedding_service(request)
+
+        # 记录请求信息
+        structured_logger.info(
+            "文本相似度计算请求",
+            extra={
+                "model": similarity_request.model,
+                "text1_length": len(similarity_request.text1),
+                "text2_length": len(similarity_request.text2)
+            }
+        )
+
+        # 调用统一嵌入服务
+        from rag_service.services.unified_embedding_service import SimilarityRequest as UnifiedSimilarityRequest
+
+        unified_req = UnifiedSimilarityRequest(
+            text1=similarity_request.text1,
+            text2=similarity_request.text2,
+            model_name=similarity_request.model
+        )
+
+        response = await embedding_service.compute_similarity(unified_req)
+
+        similarity_response = SimilarityResponse(
+            similarity_score=response.similarity_score,
+            model=response.model_name,
+            processing_time=response.processing_time
+        )
+
+        structured_logger.info(
+            "文本相似度计算完成",
+            extra={
+                "model": response.model_name,
+                "similarity_score": response.similarity_score,
+                "processing_time": response.processing_time
+            }
+        )
+
+        return similarity_response
+
+    except Exception as e:
+        structured_logger.error(f"文本相似度计算失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"文本相似度计算失败: {str(e)}")
+
+
+@router.get("/models", response_model=ModelsResponse, summary="列出可用模型")
+async def list_models(request: Request):
+    """
+    列出所有可用的嵌入模型
+
+    Args:
+        request: FastAPI请求对象
+
+    Returns:
+        ModelsResponse: 可用模型列表
+    """
+    try:
+        embedding_service = get_embedding_service(request)
+
+        # 获取模型列表
+        models = await embedding_service.list_models()
+
+        # 转换为响应格式
+        model_data = []
+        for model in models:
+            model_data.append(ModelInfo(
+                name=model["name"],
+                type=model["type"],
+                dimension=model["dimension"],
+                max_length=model["max_length"],
+                loaded=model["loaded"],
+                is_default=model["is_default"],
+                priority=model["priority"]
+            ))
+
+        response = ModelsResponse(
+            object="list",
+            data=model_data
+        )
+
+        structured_logger.info(
+            "嵌入模型列表获取完成",
+            extra={"model_count": len(model_data)}
+        )
+
+        return response
+
+    except Exception as e:
+        structured_logger.error(f"获取嵌入模型列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取嵌入模型列表失败: {str(e)}")
+
+
+@router.post("/batch", summary="批量生成嵌入向量")
+async def batch_embeddings(
+    request: Request,
+    texts: List[str],
+    model: Optional[str] = Query(None, description="使用的模型名称"),
+    batch_size: Optional[int] = Query(32, description="批量处理大小"),
+    use_cache: Optional[bool] = Query(True, description="是否使用缓存")
+):
+    """
+    批量生成嵌入向量（简化接口）
+
+    Args:
+        request: FastAPI请求对象
+        texts: 文本列表
+        model: 模型名称
+        batch_size: 批量处理大小
+        use_cache: 是否使用缓存
+
+    Returns:
+        Dict: 批量嵌入结果
+    """
+    try:
+        embedding_service = get_embedding_service(request)
+
+        # 记录请求信息
+        structured_logger.info(
+            "批量嵌入向量生成请求",
+            extra={
+                "text_count": len(texts),
+                "model": model,
+                "batch_size": batch_size
+            }
+        )
+
+        # 创建请求
+        from rag_service.services.unified_embedding_service import EmbeddingRequest as UnifiedRequest
+
+        unified_req = UnifiedRequest(
+            texts=texts,
+            model_name=model,
+            batch_size=batch_size,
+            use_cache=use_cache
+        )
+
+        # 生成嵌入向量
+        response = await embedding_service.embed(unified_req)
+
+        result = {
+            "success": True,
+            "embeddings": response.embeddings,
+            "model": response.model_name,
+            "dimension": response.dimension,
+            "cached_count": response.cached_count,
+            "processing_time": response.processing_time,
+            "usage": response.usage
+        }
+
+        structured_logger.info(
+            "批量嵌入向量生成完成",
+            extra={
+                "model": response.model_name,
+                "embedding_count": len(response.embeddings),
+                "cached_count": response.cached_count
+            }
+        )
+
+        return result
+
+    except Exception as e:
+        structured_logger.error(f"批量嵌入向量生成失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"批量嵌入向量生成失败: {str(e)}")
+
+
+@router.get("/health", summary="嵌入服务健康检查")
+async def embedding_health_check(request: Request):
+    """
+    嵌入服务健康检查
+
+    Args:
+        request: FastAPI请求对象
+
+    Returns:
+        Dict: 健康状态
+    """
+    try:
+        embedding_service = get_embedding_service(request)
+        health_status = await embedding_service.health_check()
+
+        return {
+            "success": True,
+            "data": health_status
+        }
+
+    except Exception as e:
+        structured_logger.error(f"嵌入服务健康检查失败: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
     texts: List[str] = Field(..., description="文本列表")
     model: Optional[str] = Field(None, description="使用的模型")
     input_type: Optional[str] = Field(None, description="输入类型")
