@@ -27,12 +27,12 @@ app.ext.openapi.describe("基于qwen3的向量服务和重排服务", version="1
     """
 ))
 
-root = os.path.dirname(os.path.abspath(__file__))
+root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # 向量模型
-MODEL_NAME_EM = os.path.join(root, "models", "Qwen", "Qwen3-Embedding-0.6B")
+MODEL_NAME_EM = os.path.join(root, "models", "Qwen", "Qwen3-Embedding-0___6B")
 # 重排模型
-MODEL_NAME_RE = os.path.join(root, "models", "Qwen", "Qwen3-Reranker-0.6B")
+MODEL_NAME_RE = os.path.join(root, "models", "Qwen", "Qwen3-Reranker-0___6B")
 
 # 设备配置
 device = "cuda" if torch.cuda.is_available() else "cpu"

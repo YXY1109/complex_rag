@@ -4,10 +4,10 @@
 
 ```
 nvidia-smi
-CUDA Version:12.2
+CUDA Version:12.9
 
 nvcc -V
-11.8
+12.4
 
-pip3 install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu118
+pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 ```
