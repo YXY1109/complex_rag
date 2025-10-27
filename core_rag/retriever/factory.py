@@ -16,8 +16,10 @@ from .interfaces.retriever_interface import (
 from .strategies.vector_retriever import VectorRetriever
 from .strategies.keyword_retriever import BM25Retriever
 from .strategies.graph_retriever import GraphRetriever
+from .strategies.unified_vector_adapter import create_unified_adapter
 from .multi_strategy_retriever import MultiStrategyRetriever
 from ...infrastructure.monitoring.loguru_logger import get_logger
+from ...rag_service.services.unified_vector_store import UnifiedVectorStore
 
 
 structured_logger = get_logger("core_rag.retriever.factory")
@@ -64,6 +66,21 @@ class RetrieverFactory:
                 "cache_ttl": 3600,
             },
             description="BM25检索器，基于BM25算法进行关键词检索"
+        ),
+        RetrievalStrategy.UNIFIED_VECTOR: RetrieverRegistration(
+            strategy=RetrievalStrategy.UNIFIED_VECTOR,
+            retriever_class=create_unified_adapter,
+            default_config={
+                "strategy": "unified_vector",
+                "mode": "single",
+                "top_k": 10,
+                "min_score": 0.0,
+                "max_results": 50,
+                "enable_caching": True,
+                "cache_ttl": 3600,
+                "collection_name": "default",
+            },
+            description="统一向量存储检索器，基于统一向量存储服务进行高性能检索"
         ),
         RetrievalStrategy.GRAPH: RetrieverRegistration(
             strategy=RetrievalStrategy.GRAPH,
@@ -117,6 +134,11 @@ class RetrieverFactory:
             if strategy == RetrievalStrategy.VECTOR:
                 embedding_service = kwargs.get("embedding_service")
                 return registration.retriever_class(retriever_config, embedding_service)
+            elif strategy == RetrievalStrategy.UNIFIED_VECTOR:
+                vector_store = kwargs.get("vector_store")
+                if not vector_store:
+                    raise ValueError("统一向量存储服务未提供")
+                return registration.retriever_class(retriever_config, vector_store)
             elif strategy == RetrievalStrategy.GRAPH:
                 graph_service = kwargs.get("graph_service")
                 return registration.retriever_class(retriever_config, graph_service)

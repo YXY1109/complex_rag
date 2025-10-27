@@ -45,7 +45,7 @@ class PerformanceMetrics:
     request_duration_total: float = 0.0
     request_duration_avg: float = 0.0
     request_duration_max: float = 0.0
-    request_duration_min: float = float = 0.0
+    request_duration_min: float = 0.0
     error_count: int = 0
     error_rate: float = 0.0
     active_requests: int = 0

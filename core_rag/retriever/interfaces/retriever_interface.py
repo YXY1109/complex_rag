@@ -20,6 +20,7 @@ class RetrievalStrategy(str, Enum):
     BM25 = "bm25"              # BM25检索
     DENSE = "dense"            # 稠密检索
     SPARSE = "sparse"          # 稀疏检索
+    UNIFIED_VECTOR = "unified_vector"  # 统一向量存储检索
 
 
 class RetrievalMode(str, Enum):
