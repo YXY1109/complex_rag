@@ -20,3 +20,7 @@
 ## qwen3目录
 
 基于qwen3的向量和重排服务，已调通
+
+## bge服务
+
+在docker_compose_learn项目中，基于bge模型的向量服务，已调通
