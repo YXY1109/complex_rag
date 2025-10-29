@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from textwrap import dedent
-from typing import List, Dict, Type, Any
+from typing import List, Dict, Type, Any, Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -201,143 +201,305 @@ def model_to_schema_with_defaults(model_cls: Type[BaseModel]) -> Dict[str, Any]:
     return schema
 
 
-class EmbeddingModel(BaseModel):
-    input: list = Field(default=["你是谁", "住在那里"], description="输入文本")
-    instruct: str = Field(default="", description="指令")
-    max_length: int = Field(default=8192, description="最大长度")
+# OpenAI Compatible Request Models
+class EmbeddingRequest(BaseModel):
+    input: Union[str, List[str]] = Field(description="输入文本，可以是字符串或字符串列表")
+    model: Optional[str] = Field(default=None, description="模型名称")
+    encoding_format: Optional[str] = Field(default="float", description="编码格式")
+    dimensions: Optional[int] = Field(default=None, description="嵌入维度")
+    user: Optional[str] = Field(default=None, description="用户标识")
 
 
-class RerankModel(BaseModel):
-    query: list = Field(default="What is the capital of China?", description="输入文本")
-    documents: list = Field(default=[
-        "i live chongqing city",
-        "The capital of China is Beijing.",
-        "中国的首都是北京",
-        "大家知道重庆是个好地方，重庆是中国的，重庆和北京一样的等级，都是直辖市，且北京还是首都哦",
-        "Gravity is a force that attracts two bodies towards each other. It gives weight to physical objects and is responsible for the movement of planets around the sun.",
-        "i love you",
-        "beijing is a big city"
-    ], description="输入文本")
-    instruct: str = Field(default="", description="指令")
+class RerankRequest(BaseModel):
+    model: Optional[str] = Field(default=None, description="模型名称")
+    query: str = Field(description="查询文本")
+    documents: List[str] = Field(description="文档列表")
+    top_n: Optional[int] = Field(default=None, description="返回前N个结果")
+    user: Optional[str] = Field(default=None, description="用户标识")
 
 
-embedding_schema = model_to_schema_with_defaults(EmbeddingModel)
-rerank_schema = model_to_schema_with_defaults(RerankModel)
+# OpenAI Compatible Response Models
+class EmbeddingUsage(BaseModel):
+    prompt_tokens: int = Field(description="提示词token数")
+    total_tokens: int = Field(description="总token数")
+
+
+class EmbeddingData(BaseModel):
+    object: str = Field(default="embedding", description="对象类型")
+    embedding: List[float] = Field(description="嵌入向量")
+    index: int = Field(description="索引")
+
+
+class EmbeddingResponse(BaseModel):
+    object: str = Field(default="list", description="对象类型")
+    data: List[EmbeddingData] = Field(description="嵌入数据")
+    model: str = Field(description="模型名称")
+    usage: EmbeddingUsage = Field(description="使用情况")
+
+
+class RerankResult(BaseModel):
+    index: int = Field(description="原始文档索引")
+    relevance_score: float = Field(description="相关性分数")
+    document: Optional[str] = Field(default=None, description="文档内容")
+
+
+class RerankUsage(BaseModel):
+    prompt_tokens: int = Field(description="提示词token数")
+    total_tokens: int = Field(description="总token数")
+
+
+class RerankResponse(BaseModel):
+    object: str = Field(default="list", description="对象类型")
+    data: List[RerankResult] = Field(description="重排结果")
+    model: str = Field(description="模型名称")
+    usage: RerankUsage = Field(description="使用情况")
+
+
+embedding_schema = model_to_schema_with_defaults(EmbeddingRequest)
+rerank_schema = model_to_schema_with_defaults(RerankRequest)
 
 
 @app.post("/v1/embeddings")
-@openapi.summary("向量服务")
-@openapi.description("向量接口，与vllm接口规范一致")
-@openapi.tag("向量")
+@openapi.summary("Embedding Service")
+@openapi.description("OpenAI compatible embedding API")
+@openapi.tag("Embeddings")
 @openapi.body({"application/json": embedding_schema})
 async def create_embedding(request):
     try:
         # 解析请求数据
         json_data = request.json or {}
+
+        # 使用OpenAI规范解析请求
+        input_data = json_data.get("input")
+        if not input_data:
+            return response.json({
+                "error": {
+                    "message": "Missing 'input' field in request",
+                    "type": "invalid_request_error",
+                    "code": "missing_input"
+                }
+            }, status=400)
+
+        model_name = json_data.get("model", "qwen3-embedding")
+        encoding_format = json_data.get("encoding_format", "float")
+        dimensions = json_data.get("dimensions")
+        user = json_data.get("user")
+
+        # 确保输入是列表形式
+        if isinstance(input_data, str):
+            texts = [input_data]
+        else:
+            texts = input_data
+
+        try:
+            # 在单独的线程中运行模型推理，避免阻塞事件循环
+            loop = asyncio.get_event_loop()
+            embeddings, prompt_tokens = await loop.run_in_executor(
+                None,
+                generate_embeddings,
+                texts,
+                "",  # OpenAI规范不使用instruct参数
+                8192
+            )
+
+            # 如果指定了维度，进行截断或填充
+            if dimensions is not None:
+                for i, embedding in enumerate(embeddings):
+                    if len(embedding) > dimensions:
+                        embeddings[i] = embedding[:dimensions]
+                    elif len(embedding) < dimensions:
+                        embeddings[i] = embedding + [0.0] * (dimensions - len(embedding))
+
+            # 构造OpenAI兼容的响应
+            embedding_data = [
+                EmbeddingData(
+                    object="embedding",
+                    embedding=embedding,
+                    index=i
+                )
+                for i, embedding in enumerate(embeddings)
+            ]
+
+            response_data = EmbeddingResponse(
+                object="list",
+                data=embedding_data,
+                model=model_name,
+                usage=EmbeddingUsage(
+                    prompt_tokens=prompt_tokens,
+                    total_tokens=prompt_tokens
+                )
+            )
+
+            logger.info(f"成功处理 {len(texts)} 个文本，生成嵌入向量，用户: {user}")
+            return response.json(response_data.model_dump())
+
+        except Exception as e:
+            return response.json({
+                "error": {
+                    "message": f"Failed to generate embeddings: {str(e)}",
+                    "type": "internal_server_error",
+                    "code": "embedding_generation_failed"
+                }
+            }, status=500)
+
     except Exception as e:
-        return response.json({"error": f"Invalid JSON: {str(e)}"}, status=400)
-
-    texts = json_data.get("input", "")
-    if not texts:
-        return response.json({"error": "Missing 'input' field in request"}, status=400)
-
-    instruct = json_data.get("instruct", "")
-    max_length = json_data.get("max_length", 8192)
-
-    # 确保输入是列表形式
-    if isinstance(texts, str):
-        texts = [texts]
-
-    try:
-        # 在单独的线程中运行模型推理，避免阻塞事件循环
-        loop = asyncio.get_event_loop()
-        embeddings, prompt_tokens = await loop.run_in_executor(
-            None,
-            generate_embeddings,
-            texts,
-            instruct,
-            max_length
-        )
-
-        # 按照vllm的格式构造响应
-        response_data = {
-            "object": "list",
-            "data": [
-                {
-                    "object": "embedding",
-                    "embedding": embedding,
-                    "index": i
-                } for i, embedding in enumerate(embeddings)  # noqa
-            ],
-            "model": MODEL_NAME_EM,
-            "usage": {
-                "prompt_tokens": prompt_tokens,
-                "total_tokens": prompt_tokens
+        return response.json({
+            "error": {
+                "message": f"Invalid JSON: {str(e)}",
+                "type": "invalid_request_error",
+                "code": "invalid_json"
             }
-        }
-
-        logger.info(f"成功处理 {len(texts)} 个文本，生成嵌入向量")
-        return response.json(response_data)
-
-    except Exception as e:
-        return response.json({"error": f"Failed to generate embeddings: {str(e)}"}, status=500)
+        }, status=400)
 
 
 @app.post("/v1/rerank")
-@openapi.summary("重排服务")
-@openapi.description("重排接口，与vllm接口规范一致")
-@openapi.tag("重排")
+@openapi.summary("Rerank Service")
+@openapi.description("OpenAI compatible rerank API")
+@openapi.tag("Rerank")
 @openapi.body({"application/json": rerank_schema})
 async def rerank(request):
     try:
         # 解析请求数据
         json_data = request.json or {}
+
+        # 使用OpenAI规范解析请求
+        query = json_data.get("query")
+        documents = json_data.get("documents")
+        model_name = json_data.get("model", "qwen3-reranker")
+        top_n = json_data.get("top_n", len(documents) if documents else 0)
+        user = json_data.get("user")
+
+        if not query:
+            return response.json({
+                "error": {
+                    "message": "Missing 'query' field in request",
+                    "type": "invalid_request_error",
+                    "code": "missing_query"
+                }
+            }, status=400)
+
+        if not documents or not isinstance(documents, list):
+            return response.json({
+                "error": {
+                    "message": "Missing or invalid 'documents' field in request",
+                    "type": "invalid_request_error",
+                    "code": "invalid_documents"
+                }
+            }, status=400)
+
+        try:
+            # 在单独的线程中运行模型推理
+            loop = asyncio.get_event_loop()
+            results, prompt_tokens = await loop.run_in_executor(
+                None,
+                perform_reranking,
+                query,
+                documents,
+                ""  # OpenAI规范不使用instruct参数
+            )
+
+            # 构造OpenAI兼容的重排结果
+            rerank_results = []
+            for result in results:
+                rerank_result = RerankResult(
+                    index=result["index"],
+                    relevance_score=result["score"],
+                    document=result["document"]
+                )
+                rerank_results.append(rerank_result)
+
+            # 按分数排序
+            rerank_results.sort(key=lambda x: x.relevance_score, reverse=True)
+
+            # 如果指定了top_n，截取前N个结果
+            if top_n and top_n < len(rerank_results):
+                rerank_results = rerank_results[:top_n]
+
+            # 构造OpenAI兼容的响应
+            response_data = RerankResponse(
+                object="list",
+                data=rerank_results,
+                model=model_name,
+                usage=RerankUsage(
+                    prompt_tokens=prompt_tokens,
+                    total_tokens=prompt_tokens
+                )
+            )
+
+            logger.info(f"成功处理重排请求，查询: {query[:30]}..., 文档数量: {len(documents)}, 用户: {user}")
+            return response.json(response_data.model_dump())
+
+        except Exception as e:
+            return response.json({
+                "error": {
+                    "message": f"Failed to perform reranking: {str(e)}",
+                    "type": "internal_server_error",
+                    "code": "reranking_failed"
+                }
+            }, status=500)
+
     except Exception as e:
-        return response.json({"error": f"Invalid JSON: {str(e)}"}, status=400)
-
-    query = json_data.get("query", "")
-    documents = json_data.get("documents", [])
-
-    if not query:
-        return response.json({"error": "Missing 'query' field in request"}, status=400)
-    if not documents or not isinstance(documents, list):
-        return response.json({"error": "Missing or invalid 'documents' field in request"}, status=400)
-
-    instruct = json_data.get("instruct", "")
-
-    try:
-        # 在单独的线程中运行模型推理
-        loop = asyncio.get_event_loop()
-        results, prompt_tokens = await loop.run_in_executor(
-            None,
-            perform_reranking,
-            query,
-            documents,
-            instruct
-        )
-
-        # 构造响应
-        response_data = {
-            "object": "list",
-            "data": results,
-            "model": MODEL_NAME_RE,
-            "usage": {
-                "prompt_tokens": prompt_tokens,
-                "total_tokens": prompt_tokens
+        return response.json({
+            "error": {
+                "message": f"Invalid JSON: {str(e)}",
+                "type": "invalid_request_error",
+                "code": "invalid_json"
             }
-        }
-
-        logger.info(f"成功处理重排请求，查询: {query[:30]}..., 文档数量: {len(documents)}")
-        return response.json(response_data)
-
-    except Exception as e:
-        return response.json({"error": f"Failed to perform reranking: {str(e)}"}, status=500)
+        }, status=400)
 
 
 @app.get("/health")
+@openapi.summary("Health Check")
+@openapi.description("Service health status check")
+@openapi.tag("System")
 async def health_check(request):
     """健康检查接口"""
-    return response.json({"status": "healthy", "embedding_model": MODEL_NAME_EM, "rerank_model": MODEL_NAME_RE})
+    try:
+        # 检查模型状态
+        embedding_available = model_em is not None
+        rerank_available = model_re is not None
+
+        # 获取GPU内存使用情况（如果使用GPU）
+        gpu_info = {}
+        if torch.cuda.is_available():
+            gpu_info = {
+                "device": "cuda",
+                "gpu_memory_allocated": f"{torch.cuda.memory_allocated() / 1024**3:.2f} GB",
+                "gpu_memory_reserved": f"{torch.cuda.memory_reserved() / 1024**3:.2f} GB",
+                "gpu_name": torch.cuda.get_device_name(0)
+            }
+        else:
+            gpu_info = {"device": "cpu"}
+
+        health_status = {
+            "status": "healthy" if embedding_available and rerank_available else "unhealthy",
+            "models": {
+                "embedding": {
+                    "name": os.path.basename(MODEL_NAME_EM),
+                    "available": embedding_available
+                },
+                "rerank": {
+                    "name": os.path.basename(MODEL_NAME_RE),
+                    "available": rerank_available
+                }
+            },
+            "system": gpu_info,
+            "version": "1.0.0",
+            "endpoints": [
+                "/v1/embeddings",
+                "/v1/rerank",
+                "/health"
+            ]
+        }
+
+        status_code = 200 if health_status["status"] == "healthy" else 503
+        return response.json(health_status, status=status_code)
+
+    except Exception as e:
+        return response.json({
+            "status": "unhealthy",
+            "error": str(e)
+        }, status=503)
 
 
 if __name__ == "__main__":
