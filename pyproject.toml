@@ -4,4 +4,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "elasticsearch==9.2.0",
+    "fastapi>=0.120.2",
+    "loguru>=0.7.3",
+    "sqlalchemy>=2.0.44",
+    "uvicorn>=0.38.0",
+]
